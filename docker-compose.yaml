@@ -64,6 +64,18 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # ─── Stdio-to-SSE Bridge ──────────────────────────────────────────────────
+  bridge:
+    build:
+      context: ./bridge
+      dockerfile: Dockerfile
+    container_name: agenticflow-bridge
+    environment:
+      - BRIDGE_PORT=3000
+    volumes:
+      - ./config:/config:ro
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   chroma_data:
