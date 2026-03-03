@@ -1,0 +1,67 @@
+name: agenticflow
+
+services:
+  # ─── MCPJungle Gateway ────────────────────────────────────────────────────
+  gateway:
+    image: duaraghav8/mcpjungle:latest
+    container_name: agenticflow-gateway
+    ports:
+      - "${HOST_PORT:-18080}:8080"
+    environment:
+      - DATABASE_URL=postgres://agenticflow:${POSTGRES_PASSWORD:-changeme}@postgres:5432/agenticflow
+    volumes:
+      # Allows filesystem MCP server to access the host
+      - "${VAULT_PATH:-./data/vault}:/vault:ro"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─── Obsidian Memory MCP ──────────────────────────────────────────────────
+  memory:
+    build:
+      context: ./gravity-memory-mcp
+      dockerfile: Dockerfile
+    container_name: agenticflow-memory
+    environment:
+      - VAULT_PATH=/vault
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-ollama}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
+    volumes:
+      - "${VAULT_PATH:-./data/vault}:/vault:ro"
+    depends_on:
+      - chroma
+    restart: unless-stopped
+
+  # ─── Vector Database (for Obsidian memory) ────────────────────────────────
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: agenticflow-chroma
+    volumes:
+      - chroma_data:/chroma/chroma
+    restart: unless-stopped
+
+  # ─── Postgres (MCPJungle persistence) ─────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: agenticflow-postgres
+    environment:
+      - POSTGRES_USER=agenticflow
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - POSTGRES_DB=agenticflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agenticflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  chroma_data:

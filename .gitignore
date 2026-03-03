@@ -1,0 +1,21 @@
+# Personal config — never commit these
+.env
+config/config.yaml
+config/servers.yaml
+
+# Node
+node_modules/
+dist/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Docker volumes (if mounted locally)
+data/
+
+# OS
+.DS_Store
+Thumbs.db

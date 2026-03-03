@@ -1,0 +1,28 @@
+# agenticflow configuration
+# Copy this file to config.yaml and fill in your values.
+# config.yaml is gitignored and will never be committed.
+
+# ─── Gateway ──────────────────────────────────────────────────────────────────
+gateway:
+  host_port: 18080       # Change if 18080 is in use on your machine
+  auth_token: ""         # Optional: set a token to secure your gateway
+
+# ─── Obsidian Memory ──────────────────────────────────────────────────────────
+memory:
+  vault_path: "/Users/YOURNAME/Documents/Obsidian/YourVault"  # REQUIRED
+  # vault_path works with ANY vault structure — no reorganization needed.
+
+  # Embedding provider: "ollama" (free, local) or "openai"
+  embedding:
+    provider: "ollama"
+    model: "nomic-embed-text"
+
+    # Only needed if provider is "openai"
+    # openai_api_key: "sk-..."
+
+    # Only needed if ollama is not running on default port
+    # ollama_base_url: "http://localhost:11434"
+
+# ─── Database ─────────────────────────────────────────────────────────────────
+postgres:
+  password: "changeme"   # Change this in production

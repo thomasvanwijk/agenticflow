@@ -1,0 +1,59 @@
+# MCP Server registrations
+# Copy to servers.yaml and configure the servers you want to use.
+# servers.yaml is gitignored.
+
+# ─── Jira ─────────────────────────────────────────────────────────────────────
+# Uncomment and fill in to enable Jira.
+# - name: jira
+#   type: stdio
+#   command: npx
+#   args: ["@atlassian/jira-mcp"]
+#   env:
+#     ATLASSIAN_URL: "https://YOUR-DOMAIN.atlassian.net"
+#     ATLASSIAN_EMAIL: "you@example.com"
+#     ATLASSIAN_API_TOKEN: "your-api-token"
+#   group: work
+
+# ─── Confluence ───────────────────────────────────────────────────────────────
+# - name: confluence
+#   type: stdio
+#   command: npx
+#   args: ["@atlassian/confluence-mcp"]
+#   env:
+#     ATLASSIAN_URL: "https://YOUR-DOMAIN.atlassian.net"
+#     ATLASSIAN_EMAIL: "you@example.com"
+#     ATLASSIAN_API_TOKEN: "your-api-token"
+#   group: work
+
+# ─── Filesystem ───────────────────────────────────────────────────────────────
+# Gives agents access to a local directory. Safe default is your vault.
+# - name: filesystem
+#   type: stdio
+#   command: npx
+#   args: ["@modelcontextprotocol/server-filesystem", "/vault"]
+#   group: memory
+
+# ─── Obsidian Memory (agenticflow custom) ─────────────────────────────────────
+# This is auto-registered when the memory container starts.
+# - name: memory
+#   type: http
+#   url: "http://agenticflow-memory:3001/mcp"
+#   group: memory
+
+# ─── n8n ──────────────────────────────────────────────────────────────────────
+# - name: n8n
+#   type: stdio
+#   command: npx
+#   args: ["-y", "n8n-mcp"]
+#   env:
+#     N8N_API_URL: "http://localhost:5678"
+#     N8N_API_KEY: "your-n8n-api-key"
+#   group: dev
+
+# ─── Skill Discovery (Semantic Tool Search) ───────────────────────────────────
+# Indexes all tool descriptions for intent-based discovery.
+# - name: discovery
+#   type: stdio
+#   command: npx
+#   args: ["mcp-skillset"]
+#   group: discover
