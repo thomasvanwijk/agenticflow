@@ -3,7 +3,9 @@ name: agenticflow
 services:
   # ─── MCPJungle Gateway ────────────────────────────────────────────────────
   gateway:
-    image: duaraghav8/mcpjungle:latest
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
     container_name: agenticflow-gateway
     ports:
       - "${HOST_PORT:-18080}:8080"
@@ -56,7 +58,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U agenticflow"]
+      test: [ "CMD-SHELL", "pg_isready -U agenticflow" ]
       interval: 5s
       timeout: 5s
       retries: 5

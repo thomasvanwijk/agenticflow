@@ -19,3 +19,6 @@ data/
 # OS
 .DS_Store
 Thumbs.db
+
+# don't commit research files
+Research/

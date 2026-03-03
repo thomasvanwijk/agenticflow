@@ -64,5 +64,26 @@ server.tool(
 );
 
 // ─── Start ─────────────────────────────────────────────────────────────────────
-const transport = new StdioServerTransport();
-await server.connect(transport);
+import express, { Request, Response } from "express";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+
+const app = express();
+let transport: SSEServerTransport | null = null;
+
+app.get("/mcp", async (_req: Request, res: Response) => {
+  transport = new SSEServerTransport("/message", res);
+  await server.connect(transport);
+});
+
+app.post("/message", async (req: Request, res: Response) => {
+  if (transport) {
+    await transport.handlePostMessage(req, res);
+  } else {
+    res.status(400).send("No active transport");
+  }
+});
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`Memory MCP server listening on port ${PORT}`);
+});
