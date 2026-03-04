@@ -5,9 +5,9 @@
     "command": "mcp-atlassian",
     "args": [],
     "env": {
-        "ATLASSIAN_BASE_URL": "https://YOUR_TENANT.atlassian.net",
-        "ATLASSIAN_EMAIL": "your@email.com",
-        "ATLASSIAN_API_TOKEN": "your-api-token-here"
+        "ATLASSIAN_BASE_URL": "${ATLASSIAN_BASE_URL}",
+        "ATLASSIAN_EMAIL": "${ATLASSIAN_EMAIL}",
+        "ATLASSIAN_API_TOKEN": "${ATLASSIAN_API_TOKEN}"
     },
     "session_mode": "stateful"
 }
