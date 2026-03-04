@@ -324,14 +324,15 @@ program
         console.log("\n🎉 Setup Complete! 🎉\n");
 
         if (setupRemote) {
+            const b64Creds = Buffer.from(`agenticflow:${remotePwd}`).toString("base64");
             console.log(`IMPORTANT: Your Remote Access Password is: ${remotePwd}`);
             console.log(`Save this password! It will not be shown again.\n`);
-            console.log(`To connect from a remote Claude Desktop over an HTTPS tunnel, add this to claude_desktop_config.json:\n`);
+            console.log(`To connect from a remote Claude Desktop over your Tailscale/tunnel, add this to claude_desktop_config.json:\n`);
             console.log(JSON.stringify({
                 "mcpServers": {
                     "agenticflow-remote": {
                         "command": "npx",
-                        "args": ["-y", "mcp-remote", `https://agenticflow:${remotePwd}@YOUR_TUNNEL_DOMAIN.com/mcp`]
+                        "args": ["-y", "mcp-remote", "http://YOUR_HOST:18080/mcp", "--allow-http", "--header", `Authorization: Basic ${b64Creds}`]
                     }
                 }
             }, null, 2));
