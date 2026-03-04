@@ -174,7 +174,7 @@ server.tool(
   { query: z.string().describe("Search query in natural language"), limit: z.number().optional().default(5).describe("Number of results to return") },
   async ({ query, limit }) => {
     try {
-      const collection = await getCollection("obsidian_vault");
+      const collection = await getCollection();
       const queryEmbedding = await generateEmbedding(query);
       const results = await collection.query({
         queryEmbeddings: [queryEmbedding],
@@ -206,7 +206,7 @@ server.tool(
   { force: z.boolean().optional().default(false).describe("Force re-index even if already indexed") },
   async ({ force }) => {
     try {
-      const collection = await getCollection("obsidian_vault");
+      const collection = await getCollection();
       const files = walkVault(VAULT_PATH);
 
       if (!files.length) {
