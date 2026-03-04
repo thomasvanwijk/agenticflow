@@ -10,4 +10,4 @@ npm link
 echo "✅ CLI Installed!"
 echo "Starting Setup Wizard..."
 cd ..
-agenticflow setup
+agenticflow setup "$@"

@@ -94,7 +94,8 @@ program.name("agenticflow").description("Agenticflow Management CLI").version("1
 program
     .command("setup")
     .description("Guided installation wizard for a fresh Agenticflow instance")
-    .action(async () => {
+    .option("--rebuild", "Force a full rebuild of Docker containers without using cache")
+    .action(async (options) => {
         console.log("\n🚀 Welcome to Agenticflow Setup!\n");
 
         // Step 1: Prerequisites
@@ -256,10 +257,19 @@ program
 
         // Step 4: Bootstrap
         console.log("\n--- Bootstrapping the System ---");
-        console.log("Starting Agenticflow Gateway (building Docker images)... This may take a few minutes.\n");
-        if (!runShell("docker compose up -d --build", false)) {
-            console.error("❌ Failed to start Docker containers. Check Docker daemon.");
-            process.exit(1);
+
+        if (options.rebuild) {
+            console.log("Forcing full Docker rebuild without cache... This will take a while.\n");
+            if (!runShell("docker compose build --no-cache && docker compose up -d --force-recreate", false)) {
+                console.error("❌ Failed to rebuild Docker containers. Check Docker daemon.");
+                process.exit(1);
+            }
+        } else {
+            console.log("Starting Agenticflow Gateway (building Docker images)... This may take a few minutes.\n");
+            if (!runShell("docker compose up -d --build", false)) {
+                console.error("❌ Failed to start Docker containers. Check Docker daemon.");
+                process.exit(1);
+            }
         }
         console.log("\n✅ Docker containers started.");
 
