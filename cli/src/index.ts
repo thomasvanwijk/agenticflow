@@ -249,12 +249,12 @@ program
 
         // Step 4: Bootstrap
         console.log("\n--- Bootstrapping the System ---");
-        const buildSpinner = ora("Starting Agenticflow Gateway (building Docker images)...").start();
-        if (!runShell("docker compose up -d --build", true)) {
-            buildSpinner.fail("Failed to start Docker containers. Check Docker daemon.");
+        console.log("Starting Agenticflow Gateway (building Docker images)... This may take a few minutes.\n");
+        if (!runShell("docker compose up -d --build", false)) {
+            console.error("❌ Failed to start Docker containers. Check Docker daemon.");
             process.exit(1);
         }
-        buildSpinner.succeed("Docker containers started.");
+        console.log("\n✅ Docker containers started.");
 
         const waitSpinner = ora("Waiting for MCPJungle registry to become healthy...").start();
         while (true) {
