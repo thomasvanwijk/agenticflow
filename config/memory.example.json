@@ -1,7 +1,7 @@
 {
     "name": "memory",
     "transport": "stdio",
-    "description": "Obsidian vault semantic memory — search notes, get recent context, read and log to your vault",
+    "description": "Agenticflow — semantic memory, tool discovery and execution for your Obsidian vault and integrations",
     "command": "node",
     "args": [
         "/app/agenticflow-memory-mcp/dist/index.js"
@@ -10,8 +10,8 @@
         "VAULT_PATH": "/vault",
         "CHROMA_HOST": "chroma",
         "CHROMA_PORT": "8000",
-        "EMBEDDING_PROVIDER": "ollama",
-        "EMBEDDING_MODEL": "nomic-embed-text",
+        "EMBEDDING_PROVIDER": "local",
+        "EMBEDDING_MODEL": "Xenova/all-MiniLM-L6-v2",
         "OLLAMA_BASE_URL": "http://host.docker.internal:11434"
     },
     "session_mode": "stateful"

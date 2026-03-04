@@ -110,8 +110,28 @@ class OpenAIProvider implements EmbeddingProvider {
   }
 }
 
+class LocalProvider implements EmbeddingProvider {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private static pipeline: any = null;
+
+  async generate(text: string): Promise<number[]> {
+    if (!LocalProvider.pipeline) {
+      const { pipeline, env } = await import("@huggingface/transformers");
+      // Cache models in a writable directory inside the container
+      env.cacheDir = "/tmp/hf-cache";
+      const model = EMBEDDING_MODEL !== "nomic-embed-text" ? EMBEDDING_MODEL : "Xenova/all-MiniLM-L6-v2";
+      process.stderr.write(`[local-embed] Loading model ${model} (first load may take a moment)...\n`);
+      LocalProvider.pipeline = await pipeline("feature-extraction", model, { dtype: "q8" });
+      process.stderr.write(`[local-embed] Model loaded.\n`);
+    }
+    const output = await LocalProvider.pipeline(text.slice(0, 4096), { pooling: "mean", normalize: true });
+    return Array.from(output.data as Float32Array);
+  }
+}
+
 function getProvider(): EmbeddingProvider {
   if (EMBEDDING_PROVIDER === "openai") return new OpenAIProvider();
+  if (EMBEDDING_PROVIDER === "local") return new LocalProvider();
   return new OllamaProvider();
 }
 
@@ -127,10 +147,13 @@ const noOpEmbeddingFunction = {
   },
 };
 
-async function getCollection(name: string = "obsidian_vault"): Promise<Collection> {
+async function getCollection(name?: string): Promise<Collection> {
+  // Use a per-provider collection name so different embedding dimensions never conflict.
+  // Users can switch providers freely and even compare results between them.
+  const collectionName = name ?? `obsidian_vault_${EMBEDDING_PROVIDER}`;
   const client = new ChromaClient({ host: CHROMA_HOST, port: parseInt(CHROMA_PORT), ssl: false });
   return client.getOrCreateCollection({
-    name,
+    name: collectionName,
     embeddingFunction: noOpEmbeddingFunction,
   });
 }

@@ -27,8 +27,8 @@ services:
     environment:
       - DATABASE_URL=postgres://agenticflow:${POSTGRES_PASSWORD:-changeme}@postgres:5432/agenticflow
       - VAULT_PATH=/vault
-      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-ollama}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-local}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-Xenova/all-MiniLM-L6-v2}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - CHROMA_HOST=chroma

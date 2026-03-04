@@ -145,16 +145,25 @@ program
             {
                 type: "list",
                 name: "EMBEDDING_PROVIDER",
-                message: "Which embedding provider do you want to use?",
-                choices: ["ollama", "openai"],
-                default: envVars.EMBEDDING_PROVIDER || "ollama"
+                message: "Which embedding provider do you want to use for semantic search?",
+                choices: [
+                    { name: "local (recommended) — WASM, no Ollama needed, ~23MB model auto-downloads", value: "local" },
+                    { name: "ollama — requires Ollama running on host", value: "ollama" },
+                    { name: "openai — requires an OpenAI API key", value: "openai" }
+                ],
+                default: envVars.EMBEDDING_PROVIDER || "local"
             }
         ]);
 
         envVars.VAULT_PATH = envAnswers.VAULT_PATH;
         envVars.EMBEDDING_PROVIDER = envAnswers.EMBEDDING_PROVIDER;
 
-        // --- Ollama Installation Check ---
+        if (envVars.EMBEDDING_PROVIDER === "local") {
+            console.log("\n✅ Local embedding selected. The model (Xenova/all-MiniLM-L6-v2, ~23MB) will");
+            console.log("   auto-download on first vault index. No external server needed.");
+        }
+
+        // --- Ollama Installation Check (only when ollama provider selected) ---
         if (envVars.EMBEDDING_PROVIDER === "ollama") {
             const hasOllama = runShell("ollama --version", true);
             if (!hasOllama) {
