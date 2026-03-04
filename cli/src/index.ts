@@ -215,7 +215,7 @@ program
 
         if (setupAtlassian) {
             const atlassianAnswers = await inquirer.prompt([
-                { type: "input", name: "ATLASSIAN_BASE_URL", message: "Base URL (e.g. https://tmjira.atlassian.net):" },
+                { type: "input", name: "ATLASSIAN_BASE_URL", message: "Base URL (e.g. https://mycompany.atlassian.net):" },
                 { type: "input", name: "ATLASSIAN_EMAIL", message: "Email associated with API Token:" },
                 { type: "password", name: "ATLASSIAN_API_TOKEN", message: "Jira API Token:", mask: "*" }
             ]);
