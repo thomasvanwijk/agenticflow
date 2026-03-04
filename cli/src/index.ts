@@ -138,7 +138,7 @@ program
                 type: "input",
                 name: "VAULT_PATH",
                 message: "Absolute path to your Obsidian Vault directory:",
-                default: envVars.VAULT_PATH || path.resolve(process.env.HOME || "", "Documents/Obsidian"),
+                default: envVars.VAULT_PATH || "/user/name/path/to/vault",
                 validate: (input) => fs.existsSync(input) ? true : "Directory does not exist. Please enter a valid path."
             },
             {
