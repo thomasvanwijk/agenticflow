@@ -331,7 +331,7 @@ program
                 "mcpServers": {
                     "agenticflow-remote": {
                         "command": "npx",
-                        "args": ["-y", "@mcp-builder/mcp-remote", `https://agenticflow:${remotePwd}@YOUR_TUNNEL_DOMAIN.com/mcp`]
+                        "args": ["-y", "mcp-remote", `https://agenticflow:${remotePwd}@YOUR_TUNNEL_DOMAIN.com/mcp`]
                     }
                 }
             }, null, 2));
