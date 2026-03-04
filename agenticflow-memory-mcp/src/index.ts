@@ -122,22 +122,19 @@ const noOpEmbeddingFunction = {
   },
 };
 
-let chromaCollection: Collection | null = null;
-async function getCollection(): Promise<Collection> {
-  if (chromaCollection) return chromaCollection;
+async function getCollection(name: string = "obsidian_vault"): Promise<Collection> {
   const client = new ChromaClient({ host: CHROMA_HOST, port: parseInt(CHROMA_PORT), ssl: false });
-  chromaCollection = await client.getOrCreateCollection({
-    name: "obsidian_vault",
+  return client.getOrCreateCollection({
+    name,
     embeddingFunction: noOpEmbeddingFunction,
   });
-  return chromaCollection;
 }
 
 // ─── Server ───────────────────────────────────────────────────────────────────
 
 const server = new McpServer({
   name: "agenticflow-memory",
-  version: "0.2.0",
+  version: "0.3.0",
 });
 
 // ─── Tool: Semantic search ─────────────────────────────────────────────────────
@@ -147,7 +144,7 @@ server.tool(
   { query: z.string().describe("Search query in natural language"), limit: z.number().optional().default(5).describe("Number of results to return") },
   async ({ query, limit }) => {
     try {
-      const collection = await getCollection();
+      const collection = await getCollection("obsidian_vault");
       const queryEmbedding = await generateEmbedding(query);
       const results = await collection.query({
         queryEmbeddings: [queryEmbedding],
@@ -179,7 +176,7 @@ server.tool(
   { force: z.boolean().optional().default(false).describe("Force re-index even if already indexed") },
   async ({ force }) => {
     try {
-      const collection = await getCollection();
+      const collection = await getCollection("obsidian_vault");
       const files = walkVault(VAULT_PATH);
 
       if (!files.length) {
@@ -320,6 +317,82 @@ server.tool(
     fs.appendFileSync(logFile, entry);
 
     return { content: [{ type: "text", text: `Appended to ${today}.md at ${timestamp}` }] };
+  }
+);
+
+// ─── Tool: Discover tools ─────────────────────────────────────────────────────
+server.tool(
+  "discover_tools",
+  "Semantically search for available MCP tools across all registered servers (Jira, Confluence, etc.). Use this when you are not sure which tool to use for a task.",
+  { query: z.string().describe("What do you want to do? (e.g., 'search for jira issues')"), limit: z.number().optional().default(5).describe("Number of tools to return") },
+  async ({ query, limit }) => {
+    try {
+      const collection = await getCollection("mcp_tools");
+      const queryEmbedding = await generateEmbedding(query);
+      const results = await collection.query({
+        queryEmbeddings: [queryEmbedding],
+        nResults: limit,
+      });
+
+      if (!results.documents[0]?.length) {
+        return { content: [{ type: "text", text: "No tools found in index. Try running refresh_tool_index first." }] };
+      }
+
+      const formatted = results.documents[0].map((doc: string | null, i: number) => {
+        const meta = (results.metadatas?.[0]?.[i] ?? {}) as Record<string, unknown>;
+        return `### Tool: ${meta.name}\n${doc ?? "No description"}`;
+      });
+
+      return { content: [{ type: "text", text: `## Relevant Tools Found:\n\n${formatted.join("\n\n---\n\n")}` }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Tool discovery failed: ${(err as Error).message}` }] };
+    }
+  }
+);
+
+// ─── Tool: Refresh tool index ──────────────────────────────────────────────────
+server.tool(
+  "refresh_tool_index",
+  "Sync the semantic tool index with all currently registered tools in MCPJungle. Run this after adding new MCP servers.",
+  {},
+  async () => {
+    try {
+      const collection = await getCollection("mcp_tools");
+
+      // Fetch tools from MCPJungle API
+      // Since this runs inside the gateway container as a child process, 'localhost:8080' should work
+      const res = await fetch("http://localhost:8080/api/v0/tools");
+      if (!res.ok) throw new Error(`Failed to fetch tools from MCPJungle: ${res.statusText}`);
+
+      const tools = (await res.json()) as Array<{ name: string; description: string }>;
+
+      // Clear existing tool index (simplest for now)
+      try {
+        const existing = await collection.get();
+        if (existing.ids.length > 0) {
+          await collection.delete({ ids: existing.ids });
+        }
+      } catch (e) {
+        // Collection might be empty
+      }
+
+      let indexed = 0;
+      for (const tool of tools) {
+        const textToEmbed = `${tool.name}: ${tool.description}`;
+        const embedding = await generateEmbedding(textToEmbed);
+        await collection.upsert({
+          ids: [tool.name],
+          embeddings: [embedding],
+          documents: [tool.description || "No description provided"],
+          metadatas: [{ name: tool.name }],
+        });
+        indexed++;
+      }
+
+      return { content: [{ type: "text", text: `Tool index refreshed. Indexed ${indexed} tools.` }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Refresh failed: ${(err as Error).message}` }] };
+    }
   }
 );
 
