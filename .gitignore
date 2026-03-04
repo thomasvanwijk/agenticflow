@@ -4,6 +4,7 @@ config/config.yaml
 config/servers.yaml
 config/*.json
 !config/*.example.json
+config/secrets.enc
 
 # Node
 node_modules/

@@ -36,30 +36,21 @@ AI Client (Claude / Cursor / Custom)
 - Node.js (v18+) and npm
 - An Obsidian vault (any structure)
 
-### 1. Install the CLI
+### 1. Install & Setup
+
+Run the installation script from the repository root. This will automatically build the CLI and launch the guided setup wizard to configure your environment, master password, and any external integrations (like Jira/Confluence):
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/agenticflow.git
-cd agenticflow/cli
-npm install
-npm run build
-npm link
+cd agenticflow
+./setup.sh
 ```
 
-> **Note**: If your terminal says `agenticflow: command not found`, your system's `PATH` is likely missing the global npm bin directory (very common on Linux servers). Run this to fix it permanently:
+> **Note**: If your terminal says `agenticflow: command not found` after setup completes, your system's `PATH` is likely missing the global npm bin directory (very common on Linux servers). Run this to fix it permanently:
 > ```bash
 > export PATH="$(npm config get prefix)/bin:$PATH"
 > echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.bashrc
 > ```
-
-### 2. Setup & Start
-
-Run the guided setup wizard to configure your environment, master password, and any external integrations (like Jira/Confluence):
-
-```bash
-cd ..  # back to the repo root
-agenticflow setup
-```
 
 The wizard will:
 1. Configure your `.env` and Obsidian vault path.
