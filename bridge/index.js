@@ -2,15 +2,17 @@ import express from 'express';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import yaml from 'js-yaml';
+import { EventEmitter } from 'events';
 
 const app = express();
 const port = process.env.BRIDGE_PORT || 3000;
+const bridgeHost = process.env.BRIDGE_HOST || 'bridge';
 
 app.use(express.json());
 
-// Logger middleware
+// Log all requests
 app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+    console.log(`${new Date().toISOString()} ${req.method} ${req.url} - From: ${req.ip}`);
     next();
 });
 
@@ -19,82 +21,108 @@ const loadServers = () => {
     try {
         const fileContents = fs.readFileSync('/config/servers.yaml', 'utf8');
         const config = yaml.load(fileContents);
-        return Array.isArray(config) ? config : [];
+        const servers = Array.isArray(config) ? config : [];
+        return servers;
     } catch (e) {
-        console.error('Failed to load servers.yaml:', e);
+        console.error('Failed to load servers:', e.message);
         return [];
     }
 };
 
 const servers = loadServers().filter(s => s.type === 'stdio');
-const activeProcesses = new Map();
+const serverProcesses = new Map();
+const serverEmitters = new Map();
 
 servers.forEach(serverConfig => {
-    console.log(`Setting up bridge for: ${serverConfig.name}`);
+    const { name } = serverConfig;
+    console.log(`Starting process for ${name}: ${serverConfig.command}`);
 
-    // SSE Endpoint
-    app.get(`/${serverConfig.name}/sse`, (req, res) => {
-        console.log(`New SSE connection for ${serverConfig.name}`);
+    const emitter = new EventEmitter();
+    const child = spawn(serverConfig.command, serverConfig.args || [], {
+        env: { ...process.env, ...serverConfig.env },
+        shell: true
+    });
 
+    serverProcesses.set(name, child);
+    serverEmitters.set(name, emitter);
+
+    child.stdout.on('data', (data) => {
+        const lines = data.toString().split('\n').filter(l => l.trim().startsWith('{'));
+        lines.forEach(l => emitter.emit('message', l));
+    });
+
+    child.stderr.on('data', (data) => {
+        console.log(`[${name} stderr] ${data}`);
+    });
+});
+
+// Routes
+servers.forEach(serverConfig => {
+    const { name } = serverConfig;
+
+    const handlePost = (req, res) => {
+        const child = serverProcesses.get(name);
+        if (!child) return res.status(503).json({ error: 'Server not ready' });
+
+        const msg = JSON.stringify(req.body);
+        if (req.body.method === 'initialize') {
+            console.log(`[${name}] Synchronous initialize...`);
+            const emitter = serverEmitters.get(name);
+            const onMsg = (respLine) => {
+                const response = JSON.parse(respLine);
+                if (response.id === req.body.id) {
+                    emitter.removeListener('message', onMsg);
+                    console.log(`[${name}] Sending synced response.`);
+                    res.status(200).json(response);
+                }
+            };
+            emitter.on('message', onMsg);
+            child.stdin.write(msg + '\n');
+            setTimeout(() => { if (!res.headersSent) res.status(504).json({ error: 'timeout' }); }, 5000);
+        } else {
+            child.stdin.write(msg + '\n');
+            res.status(200).json({ status: 'ok' });
+        }
+    };
+
+    app.get(`/${name}/sse`, (req, res) => {
+        console.log(`[${name}] GET SSE`);
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
         res.flushHeaders();
 
-        // Spawn child process
-        const child = spawn(serverConfig.command, serverConfig.args || [], {
-            env: { ...process.env, ...serverConfig.env },
-            shell: true
-        });
+        const endpoint = `http://${bridgeHost}:${port}/${name}/messages`;
+        res.write(`event: endpoint\ndata: ${endpoint}\n\n`);
 
-        const sessionId = Math.random().toString(36).substring(7);
-        activeProcesses.set(sessionId, child);
+        const listener = (msg) => {
+            res.write(`event: message\ndata: ${msg}\n\n`);
+        };
 
-        // Notify client of the session endpoint
-        // NOTE: The endpoint event must contain the full path for the POST messages
-        res.write(`event: endpoint\ndata: /${serverConfig.name}/messages?session=${sessionId}\n\n`);
-
-        child.stdout.on('data', (data) => {
-            const chunk = data.toString();
-            const lines = chunk.split('\n').filter(l => l.trim());
-            lines.forEach(line => {
-                res.write(`data: ${line}\n\n`); // Standard SSE format
-            });
-        });
-
-        child.stderr.on('data', (data) => {
-            console.error(`[${serverConfig.name}] stderr: ${data}`);
-        });
-
-        child.on('close', (code) => {
-            console.log(`[${serverConfig.name}] process exited with code ${code}`);
-            res.end();
-            activeProcesses.delete(sessionId);
-        });
-
+        const emitter = serverEmitters.get(name);
+        emitter.on('message', listener);
         req.on('close', () => {
-            console.log(`SSE connection closed for ${serverConfig.name}`);
-            child.kill();
-            activeProcesses.delete(sessionId);
+            console.log(`[${name}] SSE Close`);
+            emitter.removeListener('message', listener);
         });
     });
 
-    // Message Endpoint
-    app.post(`/${serverConfig.name}/messages`, (req, res) => {
-        const { session } = req.query;
-        const child = activeProcesses.get(session);
+    app.post(`/${name}/messages`, handlePost);
+    app.post(`/${name}/sse`, handlePost);
+});
 
-        if (!child) {
-            console.warn(`[${serverConfig.name}] Session not found for session ID: ${session}`);
-            return res.status(404).send('Session not found');
-        }
+// Catch-all
+app.use((req, res) => {
+    console.warn(`404: ${req.url}`);
+    res.status(404).json({ error: 'Not Found', url: req.url });
+});
 
-        console.log(`Forwarding message to ${serverConfig.name} [${session}]:`, JSON.stringify(req.body));
-        child.stdin.write(JSON.stringify(req.body) + '\n');
-        res.status(202).send('Accepted');
-    });
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('Global Error:', err);
+    res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
 });
 
 app.listen(port, "0.0.0.0", () => {
-    console.log(`MCP Stdio-to-SSE Proxy listening on port ${port}`);
+    console.log(`Bridge listening on ${port}`);
 });

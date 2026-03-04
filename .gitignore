@@ -2,6 +2,8 @@
 .env
 config/config.yaml
 config/servers.yaml
+config/*.json
+!config/*.example.json
 
 # Node
 node_modules/

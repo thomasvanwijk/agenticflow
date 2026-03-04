@@ -14,6 +14,8 @@ services:
     volumes:
       # Allows filesystem MCP server to access the host
       - "${VAULT_PATH:-./data/vault}:/vault:ro"
+      # Config directory for MCP server registration JSON files
+      - ./config:/config:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,18 +64,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
-
-  # ─── Stdio-to-SSE Bridge ──────────────────────────────────────────────────
-  bridge:
-    build:
-      context: ./bridge
-      dockerfile: Dockerfile
-    container_name: agenticflow-bridge
-    environment:
-      - BRIDGE_PORT=3000
-    volumes:
-      - ./config:/config:ro
     restart: unless-stopped
 
 volumes:

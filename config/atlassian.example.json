@@ -1,0 +1,13 @@
+{
+    "name": "atlassian",
+    "transport": "stdio",
+    "description": "Atlassian Jira and Confluence MCP server",
+    "command": "mcp-atlassian",
+    "args": [],
+    "env": {
+        "ATLASSIAN_BASE_URL": "https://YOUR_TENANT.atlassian.net",
+        "ATLASSIAN_EMAIL": "your@email.com",
+        "ATLASSIAN_API_TOKEN": "your-api-token-here"
+    },
+    "session_mode": "stateful"
+}
