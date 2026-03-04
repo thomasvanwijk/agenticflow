@@ -119,14 +119,11 @@ class LocalProvider implements EmbeddingProvider {
       const { pipeline, env } = await import("@huggingface/transformers");
       // Cache models in a writable directory inside the container
       env.cacheDir = "/tmp/hf-cache";
-      // Force WASM backend — the native onnxruntime-node binary requires glibc
-      // which is not available on Alpine Linux (musl). WASM works everywhere.
-      env.backends.onnx.wasm && (env.backends.onnx.wasm.proxy = false);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (env as any).backends.onnx.backend = "wasm";
       const model = EMBEDDING_MODEL !== "nomic-embed-text" ? EMBEDDING_MODEL : "Xenova/all-MiniLM-L6-v2";
       process.stderr.write(`[local-embed] Loading model ${model} (first load may take a moment)...\n`);
-      LocalProvider.pipeline = await pipeline("feature-extraction", model, { dtype: "fp32" });
+      // onnxruntime-node (native binary, glibc-dependent) is replaced with onnxruntime-web
+      // (pure WASM) in the Docker build — works on Alpine Linux without glibc.
+      LocalProvider.pipeline = await pipeline("feature-extraction", model, { dtype: "q8" });
       process.stderr.write(`[local-embed] Model loaded.\n`);
     }
     const output = await LocalProvider.pipeline(text.slice(0, 4096), { pooling: "mean", normalize: true });
