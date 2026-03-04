@@ -205,9 +205,21 @@ program
             process.env.AGENTICFLOW_MASTER_PASSWORD = envVars.AGENTICFLOW_MASTER_PASSWORD;
         }
 
-        const envContent = Object.entries(envVars).map(([k, v]) => `${k}=${v}`).join("\n");
+        const envContent = Object.entries(envVars).map(([k, v]) => {
+            if (typeof v === "string" && v.includes("$")) return `${k}='${v}'`;
+            return `${k}=${v}`;
+        }).join("\n");
         fs.writeFileSync(ENV_FILE, envContent, "utf8");
         ora().succeed(".env configured and saved.");
+
+        // Step 2b: Bootstrap core config files from examples if not present
+        const configDir = path.resolve(process.cwd(), "config");
+        const memoryJson = path.join(configDir, "memory.json");
+        const memoryExample = path.join(configDir, "memory.example.json");
+        if (!fs.existsSync(memoryJson) && fs.existsSync(memoryExample)) {
+            fs.copyFileSync(memoryExample, memoryJson);
+            ora().succeed("Bootstrapped config/memory.json from example.");
+        }
 
         // Step 3: Secrets Integration
         const { setupAtlassian } = await inquirer.prompt([
@@ -273,14 +285,23 @@ program
         }
         console.log("\n✅ Docker containers started.");
 
+        const hostPort = envVars.HOST_PORT || "18080";
+        const gatewayUrl = `http://localhost:${hostPort}/api/v0/tools`;
         const waitSpinner = ora("Waiting for MCPJungle registry to become healthy...").start();
+        let attempts = 0;
         while (true) {
             try {
-                const out = execSync("docker exec agenticflow-gateway mcpjungle list tools 2>&1", { stdio: "pipe" }).toString();
-                if (out.includes("agenticflow__semantic_search")) {
+                const out = execSync(`curl -s --max-time 5 "${gatewayUrl}"`, { stdio: "pipe" }).toString();
+                const json = JSON.parse(out);
+                if (Array.isArray(json) && json.some((t: any) => t.name?.includes("semantic_search"))) {
                     break;
                 }
             } catch { }
+            attempts++;
+            if (attempts > 60) {
+                waitSpinner.fail("Timed out waiting for gateway. Check 'docker logs agenticflow-gateway' for errors.");
+                process.exit(1);
+            }
             await new Promise(r => setTimeout(r, 2000));
         }
         waitSpinner.succeed("Gateway is healthy and tools are registered.");
