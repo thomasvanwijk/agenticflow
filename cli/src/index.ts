@@ -10,7 +10,8 @@ import { execSync, spawn } from "child_process";
 import dotenv from "dotenv";
 
 // Load existing env for the CLI process context
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+// Passing quiet: true suppress dotenvx/dotenv advertising tips
+(dotenv.config as any)({ path: path.resolve(process.cwd(), ".env"), quiet: true });
 
 const ALGORITHM = "aes-256-gcm";
 const DEFAULT_SECRETS_FILE = path.resolve(process.cwd(), "config/secrets.enc");
@@ -102,6 +103,26 @@ program
             process.exit(1);
         }
         spinner.succeed("Prerequisites met.");
+
+        // Step 1.5: Check for existing configuration
+        if (fs.existsSync(ENV_FILE) || fs.existsSync(DEFAULT_SECRETS_FILE)) {
+            const { overwrite } = await inquirer.prompt([
+                {
+                    type: "list",
+                    name: "overwrite",
+                    message: "🚨 Agenticflow appears to be already configured. What would you like to do?",
+                    choices: [
+                        { name: "Cancel and exit setup (Run 'agenticflow up' to start the cluster)", value: false },
+                        { name: "Reconfigure everything (This will overwrite existing configurations)", value: true }
+                    ]
+                }
+            ]);
+
+            if (!overwrite) {
+                console.log("Setup aborted. Your existing configuration is safe.");
+                process.exit(0);
+            }
+        }
 
         // Step 2: Environment Configuration (.env)
         console.log("\n--- Let's configure your environment ---");
