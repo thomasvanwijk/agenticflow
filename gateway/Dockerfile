@@ -29,7 +29,10 @@ COPY --from=memory-builder /app /app/agenticflow-memory-mcp
 WORKDIR /
 
 # Install npm-based MCP servers that MCPJungle will spawn via STDIO transport
-RUN npm install -g mcp-atlassian jsdom
+# Install npm-based MCP servers and patch Jira search API (which was recently changed by Atlassian)
+RUN npm install -g mcp-atlassian jsdom && \
+    sed -i 's/response.data.issues.map/(response.data.issues || []).map/g' /usr/local/lib/node_modules/mcp-atlassian/dist/jira/handlers.js && \
+    sed -i "s|/rest/api/3/search|/rest/api/3/search/jql|g" /usr/local/lib/node_modules/mcp-atlassian/dist/jira/handlers.js
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s \

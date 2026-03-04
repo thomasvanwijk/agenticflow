@@ -11,6 +11,15 @@ services:
       - "${HOST_PORT:-18080}:8080"
     environment:
       - DATABASE_URL=postgres://agenticflow:${POSTGRES_PASSWORD:-changeme}@postgres:5432/agenticflow
+      - VAULT_PATH=/vault
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-ollama}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       # Allows filesystem MCP server to access the host
       - "${VAULT_PATH:-./data/vault}:/vault:ro"
@@ -19,26 +28,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped
-
-  # ─── Obsidian Memory MCP ──────────────────────────────────────────────────
-  memory:
-    build:
-      context: ./agenticflow-memory-mcp
-      dockerfile: Dockerfile
-    container_name: agenticflow-memory
-    environment:
-      - VAULT_PATH=/vault
-      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-ollama}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - CHROMA_HOST=chroma
-      - CHROMA_PORT=8000
-    volumes:
-      - "${VAULT_PATH:-./data/vault}:/vault:ro"
-    depends_on:
-      - chroma
+      chroma:
+        condition: service_started
     restart: unless-stopped
 
   # ─── Vector Database (for Obsidian memory) ────────────────────────────────

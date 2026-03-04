@@ -7,7 +7,8 @@ import { z } from "zod";
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
-import { ChromaClient, Collection } from "chromadb";
+import { ChromaClient } from "chromadb";
+import type { Collection } from "chromadb";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -40,32 +41,95 @@ function readNote(filePath: string): { content: string; data: Record<string, unk
   return { content: parsed.content, data: parsed.data, excerpt: parsed.excerpt || "" };
 }
 
-async function generateEmbedding(text: string): Promise<number[]> {
-  if (EMBEDDING_PROVIDER === "openai" && OPENAI_API_KEY) {
-    const res = await fetch("https://api.openai.com/v1/embeddings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: "text-embedding-3-small", input: text.slice(0, 8000) }),
-    });
-    const json = (await res.json()) as { data: { embedding: number[] }[] };
-    return json.data[0].embedding;
-  } else {
-    // Ollama
-    const res = await fetch(`${OLLAMA_BASE_URL}/api/embeddings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: EMBEDDING_MODEL, prompt: text.slice(0, 8000) }),
-    });
-    const json = (await res.json()) as { embedding: number[] };
-    return json.embedding;
+// ─── Providers ───────────────────────────────────────────────────────────────
+
+interface EmbeddingProvider {
+  generate(text: string): Promise<number[]>;
+}
+
+class OllamaProvider implements EmbeddingProvider {
+  async generate(text: string): Promise<number[]> {
+    try {
+      const res = await fetch(`${OLLAMA_BASE_URL}/api/embeddings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: EMBEDDING_MODEL, prompt: text.slice(0, 8192) }),
+        signal: AbortSignal.timeout(30000), // 30s timeout
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Ollama HTTP ${res.status}: ${errorText}`);
+      }
+
+      const json = (await res.json()) as { embedding?: number[]; embeddings?: number[][] };
+      const emb = json.embedding ?? json.embeddings?.[0];
+
+      if (!Array.isArray(emb) || emb.length === 0) {
+        throw new Error(`Invalid response from Ollama: ${JSON.stringify(json).slice(0, 200)}`);
+      }
+
+      return emb;
+    } catch (err) {
+      process.stderr.write(`TRACE: Ollama error: ${(err as Error).stack || (err as Error).message}\n`);
+      throw new Error(`Ollama provider failed: ${(err as Error).message}`);
+    }
   }
 }
+
+class OpenAIProvider implements EmbeddingProvider {
+  async generate(text: string): Promise<number[]> {
+    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not set.");
+    try {
+      const res = await fetch("https://api.openai.com/v1/embeddings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({ model: "text-embedding-3-small", input: text.slice(0, 8192) }),
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`OpenAI HTTP ${res.status}: ${errorText}`);
+      }
+
+      const json = (await res.json()) as { data: { embedding: number[] }[] };
+      return json.data[0].embedding;
+    } catch (err) {
+      process.stderr.write(`TRACE: OpenAI error: ${(err as Error).stack || (err as Error).message}\n`);
+      throw new Error(`OpenAI provider failed: ${(err as Error).message}`);
+    }
+  }
+}
+
+function getProvider(): EmbeddingProvider {
+  if (EMBEDDING_PROVIDER === "openai") return new OpenAIProvider();
+  return new OllamaProvider();
+}
+
+async function generateEmbedding(text: string): Promise<number[]> {
+  const provider = getProvider();
+  return provider.generate(text);
+}
+
+// No-op embedding function for ChromaDB registration — we always provide external embeddings
+const noOpEmbeddingFunction = {
+  generate: async (): Promise<number[][]> => {
+    throw new Error("Chroma internal generate() called. Use generateEmbedding() instead.");
+  },
+};
 
 let chromaCollection: Collection | null = null;
 async function getCollection(): Promise<Collection> {
   if (chromaCollection) return chromaCollection;
-  const client = new ChromaClient({ path: `http://${CHROMA_HOST}:${CHROMA_PORT}` });
-  chromaCollection = await client.getOrCreateCollection({ name: "obsidian_vault" });
+  const client = new ChromaClient({ host: CHROMA_HOST, port: parseInt(CHROMA_PORT), ssl: false });
+  chromaCollection = await client.getOrCreateCollection({
+    name: "obsidian_vault",
+    embeddingFunction: noOpEmbeddingFunction,
+  });
   return chromaCollection;
 }
 
@@ -88,15 +152,14 @@ server.tool(
       const results = await collection.query({
         queryEmbeddings: [queryEmbedding],
         nResults: limit,
-        include: ["documents", "metadatas", "distances"] as any,
       });
 
       if (!results.documents[0]?.length) {
-        return { content: [{ type: "text", text: "No results found. The vault index may be empty — try running an index first or using recent_context." }] };
+        return { content: [{ type: "text", text: "No results found. The vault index may be empty — try running index_vault first or using recent_context." }] };
       }
 
       const formatted = results.documents[0].map((doc: string | null, i: number) => {
-        const meta = results.metadatas?.[0]?.[i] as Record<string, unknown> ?? {};
+        const meta = (results.metadatas?.[0]?.[i] ?? {}) as Record<string, unknown>;
         const score = results.distances?.[0]?.[i];
         const rel = score != null ? `(relevance: ${(1 - score).toFixed(2)})` : "";
         return `### ${meta.title || meta.path || `Result ${i + 1}`} ${rel}\n${(doc ?? "").slice(0, 1500)}`;
@@ -136,25 +199,32 @@ server.tool(
 
         if (!force) {
           // Check if already indexed with same mtime
-          const existing = await collection.get({ ids: [id], include: ["metadatas"] as any });
+          const existing = await collection.get({ ids: [id] });
           if (existing.ids.length > 0) {
             const meta = existing.metadatas?.[0] as Record<string, unknown> | undefined;
-            if (meta && meta.mtime === stat.mtimeMs) { skipped++; continue; }
+            if (meta && meta.mtime === Math.floor(stat.mtimeMs)) { skipped++; continue; }
           }
         }
 
-        const embedding = await generateEmbedding(content);
-        await collection.upsert({
-          ids: [id],
-          embeddings: [embedding],
-          documents: [content.slice(0, 8000)],
-          metadatas: [{ path: id, title: String(data.title || path.basename(filePath, ".md")), mtime: stat.mtimeMs }],
-        });
-        indexed++;
+        try {
+          const embedding = await generateEmbedding(content);
+          await collection.upsert({
+            ids: [id],
+            embeddings: [embedding],
+            documents: [content.slice(0, 8000)],
+            metadatas: [{ path: id, title: String(data.title || path.basename(filePath, ".md")), mtime: Math.floor(stat.mtimeMs) }],
+          });
+          indexed++;
+        } catch (fileErr) {
+          // Skip files that fail embedding (e.g. binary content, Ollama error)
+          process.stderr.write(`Skipping ${relPath}: ${(fileErr as Error).message}\n`);
+          skipped++;
+        }
       }
 
-      return { content: [{ type: "text", text: `Indexing complete.\n- Indexed: ${indexed} notes\n- Skipped (unchanged): ${skipped} notes\n- Total vault files: ${files.length}` }] };
+      return { content: [{ type: "text", text: `Indexing complete.\n- Indexed: ${indexed} notes\n- Skipped (failed/unchanged): ${skipped} notes\n- Total vault files: ${files.length}` }] };
     } catch (err) {
+      process.stderr.write(`TRACE: ${(err as Error).stack || (err as Error).message}\n`);
       return { content: [{ type: "text", text: `Indexing failed: ${(err as Error).message}` }] };
     }
   }

@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.0",
-    "chromadb": "^1.9.0",
+    "@chroma-core/default-embed": "^0.1.9",
+    "chromadb": "^3.3.1",
     "chokidar": "^3.6.0",
     "gray-matter": "^4.0.3",
     "zod": "^3.22.0"
