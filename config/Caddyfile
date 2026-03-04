@@ -1,0 +1,13 @@
+:18080 {
+    # If the user sets up remote auth, require it
+    @auth {
+        expression `{env.AGENTICFLOW_REMOTE_ENABLED} == "true"`
+    }
+    handle @auth {
+        basic_auth {
+            {env.AGENTICFLOW_REMOTE_USER} {env.AGENTICFLOW_REMOTE_PASSWORD_HASH}
+        }
+    }
+
+    reverse_proxy gateway:8080
+}

@@ -1,14 +1,29 @@
 name: agenticflow
 
 services:
+  # ─── Auth Proxy (Caddy) ───────────────────────────────────────────────────
+  proxy:
+    image: caddy:alpine
+    container_name: agenticflow-proxy
+    ports:
+      - "${HOST_PORT:-18080}:18080"
+    environment:
+      - AGENTICFLOW_REMOTE_ENABLED=${AGENTICFLOW_REMOTE_ENABLED:-false}
+      - AGENTICFLOW_REMOTE_USER=${AGENTICFLOW_REMOTE_USER:-disabled_user}
+      - AGENTICFLOW_REMOTE_PASSWORD_HASH=${AGENTICFLOW_REMOTE_PASSWORD_HASH:-$$2b$$10$$L5M3KsKmofKzl8T/eEYVfeZ9/BpQeAipA3uajx3MmxtFdHRBu8i4W}
+    volumes:
+      - ./config/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
   # ─── MCPJungle Gateway ────────────────────────────────────────────────────
   gateway:
     build:
       context: .
       dockerfile: gateway/Dockerfile
     container_name: agenticflow-gateway
-    ports:
-      - "${HOST_PORT:-18080}:8080"
+    # The gateway is now shielded by the auth proxy and not exposed to the host directly.
     environment:
       - DATABASE_URL=postgres://agenticflow:${POSTGRES_PASSWORD:-changeme}@postgres:5432/agenticflow
       - VAULT_PATH=/vault

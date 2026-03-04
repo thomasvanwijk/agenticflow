@@ -8,6 +8,7 @@ import inquirer from "inquirer";
 import ora from "ora";
 import { execSync, spawn } from "child_process";
 import dotenv from "dotenv";
+import bcrypt from "bcryptjs";
 
 // Load existing env for the CLI process context
 // Passing quiet: true suppress dotenvx/dotenv advertising tips
@@ -151,6 +152,42 @@ program
 
         envVars.VAULT_PATH = envAnswers.VAULT_PATH;
         envVars.EMBEDDING_PROVIDER = envAnswers.EMBEDDING_PROVIDER;
+
+        // --- Ollama Installation Check ---
+        if (envVars.EMBEDDING_PROVIDER === "ollama") {
+            const hasOllama = runShell("ollama --version", true);
+            if (!hasOllama) {
+                console.log("\n⚠️ Ollama is not installed on this system.");
+                const { installOllama } = await inquirer.prompt([
+                    {
+                        type: "list",
+                        name: "installOllama",
+                        message: "Would you like to install Ollama automatically?",
+                        choices: [
+                            { name: "Yes, install automatically (Linux/macOS)", value: true },
+                            { name: "No, I will install it manually later", value: false }
+                        ]
+                    }
+                ]);
+
+                if (installOllama) {
+                    if (process.platform === "win32") {
+                        console.log("Automatic installation is not supported on Windows. Please download Ollama from https://ollama.com/download");
+                    } else {
+                        console.log("Running Ollama installation script...");
+                        try {
+                            execSync("curl -fsSL https://ollama.com/install.sh | sh", { stdio: "inherit" });
+                            ora().succeed("Ollama installed successfully.");
+                        } catch (err) {
+                            console.error("Failed to install Ollama automatically. You may need to install it manually from https://ollama.com/download");
+                        }
+                    }
+                } else {
+                    console.log("Please remember to install and start Ollama manually. Download from: https://ollama.com/download");
+                }
+            }
+        }
+
         if (!envVars.POSTGRES_PASSWORD || envVars.POSTGRES_PASSWORD === "changeme") {
             envVars.POSTGRES_PASSWORD = generatePassword(24);
         }
@@ -191,6 +228,25 @@ program
             ora().succeed("Atlassian credentials encrypted and saved.");
         }
 
+        // Step 3.5: Remote Access
+        console.log("\n--- Remote Access ---");
+        const { setupRemote } = await inquirer.prompt([
+            { type: "confirm", name: "setupRemote", message: "Enable secure Remote Access (requires authentication)?", default: false }
+        ]);
+
+        let remotePwd = "";
+        if (setupRemote) {
+            console.log("⚠️ You must expose this proxy via an HTTPS tunnel (e.g. Cloudflare Tunnels) or Tailscale HTTPS. Exposing it over plain HTTP is insecure.");
+            remotePwd = generatePassword(24);
+            const hashed = bcrypt.hashSync(remotePwd, 10);
+            envVars.AGENTICFLOW_REMOTE_USER = "agenticflow";
+            envVars.AGENTICFLOW_REMOTE_PASSWORD_HASH = hashed;
+
+            const updatedEnvContent = Object.entries(envVars).map(([k, v]) => `${k}=${v}`).join("\n");
+            fs.writeFileSync(ENV_FILE, updatedEnvContent, "utf8");
+            ora().succeed(`Remote Access enabled. Generated user: agenticflow`);
+        }
+
         // Step 4: Bootstrap
         console.log("\n--- Bootstrapping the System ---");
         const buildSpinner = ora("Starting Agenticflow Gateway (building Docker images)...").start();
@@ -228,15 +284,30 @@ program
         }
 
         console.log("\n🎉 Setup Complete! 🎉\n");
-        console.log("Add this to your Claude Desktop config (claude_desktop_config.json):\n");
-        console.log(JSON.stringify({
-            "mcpServers": {
-                "agenticflow": {
-                    "command": "docker",
-                    "args": ["exec", "-i", "agenticflow-gateway", "mcpjungle", "stdio", "--server", "agenticflow"]
+
+        if (setupRemote) {
+            console.log(`IMPORTANT: Your Remote Access Password is: ${remotePwd}`);
+            console.log(`Save this password! It will not be shown again.\n`);
+            console.log(`To connect from a remote Claude Desktop over an HTTPS tunnel, add this to claude_desktop_config.json:\n`);
+            console.log(JSON.stringify({
+                "mcpServers": {
+                    "agenticflow-remote": {
+                        "command": "npx",
+                        "args": ["-y", "@mcp-builder/mcp-remote", `https://agenticflow:${remotePwd}@YOUR_TUNNEL_DOMAIN.com/mcp`]
+                    }
                 }
-            }
-        }, null, 2));
+            }, null, 2));
+        } else {
+            console.log("To connect from your local Claude Desktop, add this to claude_desktop_config.json:\n");
+            console.log(JSON.stringify({
+                "mcpServers": {
+                    "agenticflow": {
+                        "command": "docker",
+                        "args": ["exec", "-i", "agenticflow-gateway", "mcpjungle", "stdio", "--server", "agenticflow"]
+                    }
+                }
+            }, null, 2));
+        }
         console.log("\n");
     });
 
