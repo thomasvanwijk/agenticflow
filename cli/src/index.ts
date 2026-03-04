@@ -242,7 +242,14 @@ program
             envVars.AGENTICFLOW_REMOTE_USER = "agenticflow";
             envVars.AGENTICFLOW_REMOTE_PASSWORD_HASH = hashed;
 
-            const updatedEnvContent = Object.entries(envVars).map(([k, v]) => `${k}=${v}`).join("\n");
+            const updatedEnvContent = Object.entries(envVars).map(([k, v]) => {
+                // If a value contains a '$' (like a bcrypt hash), wrap it in single quotes
+                // to prevent docker-compose from interpolating it as an environment variable.
+                if (typeof v === "string" && v.includes("$")) {
+                    return `${k}='${v}'`;
+                }
+                return `${k}=${v}`;
+            }).join("\n");
             fs.writeFileSync(ENV_FILE, updatedEnvContent, "utf8");
             ora().succeed(`Remote Access enabled. Generated user: agenticflow`);
         }
