@@ -4,8 +4,8 @@ services:
   # ─── MCPJungle Gateway ────────────────────────────────────────────────────
   gateway:
     build:
-      context: ./gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: gateway/Dockerfile
     container_name: agenticflow-gateway
     ports:
       - "${HOST_PORT:-18080}:8080"
@@ -24,7 +24,7 @@ services:
   # ─── Obsidian Memory MCP ──────────────────────────────────────────────────
   memory:
     build:
-      context: ./gravity-memory-mcp
+      context: ./agenticflow-memory-mcp
       dockerfile: Dockerfile
     container_name: agenticflow-memory
     environment:

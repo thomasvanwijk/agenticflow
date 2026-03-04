@@ -1,23 +1,34 @@
 # Stage 1: Build MCPJungle from source
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24-alpine AS mcpjungle-builder
 
 RUN apk add --no-cache git
 WORKDIR /build
 RUN git clone --depth 1 --branch 0.3.5 https://github.com/mcpjungle/MCPJungle.git .
 RUN go build -o /mcpjungle .
 
-# Stage 2: Runtime
+# Stage 2: Build agenticflow-memory-mcp
+FROM node:22-alpine AS memory-builder
+
+WORKDIR /app
+COPY agenticflow-memory-mcp/package*.json ./
+RUN npm install
+COPY agenticflow-memory-mcp/ .
+RUN npm run build
+
+# Stage 3: Runtime
 FROM node:24-alpine
 
-# Copy built binary and certs
-COPY --from=builder /mcpjungle /mcpjungle
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-
-# Setup path
+# Copy MCPJungle binary and certs
+COPY --from=mcpjungle-builder /mcpjungle /mcpjungle
+COPY --from=mcpjungle-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 RUN ln -s /mcpjungle /usr/local/bin/mcpjungle
+
+# Copy compiled memory MCP (MCPJungle will spawn it via STDIO)
+COPY --from=memory-builder /app /app/agenticflow-memory-mcp
+
 WORKDIR /
 
-# Install MCP servers that MCPJungle will spawn via STDIO transport
+# Install npm-based MCP servers that MCPJungle will spawn via STDIO transport
 RUN npm install -g mcp-atlassian jsdom
 
 # Healthcheck
