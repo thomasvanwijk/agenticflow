@@ -1,5 +1,0 @@
-services:
-  test:
-    image: alpine
-    environment:
-      - HASH=${TEST_HASH}
