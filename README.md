@@ -33,27 +33,34 @@ AI Client (Claude / Cursor / Custom)
 
 ### Prerequisites
 - Docker + Docker Compose
+- Node.js (v18+) and npm
 - An Obsidian vault (any structure)
-- API keys for the services you want to connect
 
-### 1. Clone and configure
+### 1. Install the CLI
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/agenticflow.git
-cd agenticflow
-cp config/config.example.yaml config/config.yaml
-cp config/servers.example.yaml config/servers.yaml
+cd agenticflow/cli
+npm install
+npm link
 ```
 
-Edit `config/config.yaml` with your vault path and API keys.
+### 2. Setup & Start
 
-### 2. Start the stack
+Run the guided setup wizard to configure your environment, master password, and any external integrations (like Jira/Confluence):
 
 ```bash
-docker compose up -d
+cd ..  # back to the repo root
+agenticflow setup
 ```
 
-Gateway is live at `http://localhost:18080/mcp`
+The wizard will:
+1. Configure your `.env` and Obsidian vault path.
+2. Store your Master Password securely.
+3. Automatically build and start the Docker containers.
+4. Let you index your vault for the first time.
+
+*(If you ever need to stop or start the cluster manually, just run `agenticflow up` or `agenticflow down`)*
 
 ### 3. Connect your AI client
 

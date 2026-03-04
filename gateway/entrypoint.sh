@@ -11,7 +11,7 @@ CONFIG_DIR="/config"
 if [ -f "${CONFIG_DIR}/secrets.enc" ]; then
   if [ -n "$AGENTICFLOW_MASTER_PASSWORD" ]; then
     echo "[agenticflow] Injecting secrets from secrets.enc..."
-    agenticflow-secrets inject \
+    agenticflow secrets inject \
       -f "${CONFIG_DIR}/secrets.enc" \
       -t "${CONFIG_DIR}" \
       -o "${CONFIG_DIR}" || echo "[agenticflow]   WARNING: Secret injection failed. Continuing with existing config."

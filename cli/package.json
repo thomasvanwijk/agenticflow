@@ -1,9 +1,10 @@
 {
-  "name": "secret-manager",
+  "name": "agenticflow-cli",
   "version": "1.0.0",
-  "description": "",
+  "description": "Agenticflow Management CLI",
   "main": "dist/index.js",
   "bin": {
+    "agenticflow": "./dist/index.js",
     "agenticflow-secrets": "./dist/index.js"
   },
   "scripts": {
@@ -17,14 +18,17 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@types/inquirer": "^9.0.9",
     "@types/node": "^25.3.3",
     "commander": "^14.0.3",
     "dotenv": "^17.3.1",
-    "inquirer": "^13.3.0",
+    "inquirer": "^8.2.5",
     "json5": "^2.2.3",
+    "ora": "^5.4.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "yaml": "^2.8.2"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^8.2.6"
   }
 }

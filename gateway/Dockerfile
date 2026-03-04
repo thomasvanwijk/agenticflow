@@ -15,13 +15,13 @@ RUN npm install
 COPY agenticflow-memory-mcp/ .
 RUN npm run build
 
-# Stage 3: Build secret-manager
-FROM node:22-alpine AS secret-manager-builder
+# Stage 3: Build agenticflow CLI
+FROM node:22-alpine AS cli-builder
 
 WORKDIR /app
-COPY secret-manager/package*.json ./
+COPY cli/package*.json ./
 RUN npm install
-COPY secret-manager/ .
+COPY cli/ .
 RUN npm run build
 
 # Stage 4: Runtime
@@ -35,9 +35,9 @@ RUN ln -s /mcpjungle /usr/local/bin/mcpjungle
 # Copy compiled memory MCP (MCPJungle will spawn it via STDIO)
 COPY --from=memory-builder /app /app/agenticflow-memory-mcp
 
-# Copy secret-manager and link the agenticflow-secrets CLI
-COPY --from=secret-manager-builder /app /app/secret-manager
-RUN cd /app/secret-manager && npm link
+# Copy cli and link the agenticflow global command
+COPY --from=cli-builder /app /app/cli
+RUN cd /app/cli && npm link
 
 WORKDIR /
 
