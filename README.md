@@ -42,6 +42,7 @@ AI Client (Claude / Cursor / Custom)
 git clone https://github.com/YOUR_USERNAME/agenticflow.git
 cd agenticflow/cli
 npm install
+npm run build
 npm link
 ```
 
