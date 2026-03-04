@@ -7,7 +7,22 @@ set -e
 REGISTRY="http://127.0.0.1:8080"
 CONFIG_DIR="/config"
 
-# ── 1. Start MCPJungle in the background ─────────────────────────────────────
+# ── 1. Inject secrets into config files (if secrets.enc exists) ───────────────
+if [ -f "${CONFIG_DIR}/secrets.enc" ]; then
+  if [ -n "$AGENTICFLOW_MASTER_PASSWORD" ]; then
+    echo "[agenticflow] Injecting secrets from secrets.enc..."
+    agenticflow-secrets inject \
+      -f "${CONFIG_DIR}/secrets.enc" \
+      -t "${CONFIG_DIR}" \
+      -o "${CONFIG_DIR}" || echo "[agenticflow]   WARNING: Secret injection failed. Continuing with existing config."
+  else
+    echo "[agenticflow]   WARNING: secrets.enc found but AGENTICFLOW_MASTER_PASSWORD is not set. Skipping injection."
+  fi
+else
+  echo "[agenticflow] No secrets.enc found. Using config files as-is."
+fi
+
+# ── 2. Start MCPJungle in the background ─────────────────────────────────────
 /mcpjungle start &
 MCPJUNGLE_PID=$!
 
