@@ -45,6 +45,8 @@ npm install
 npm link
 ```
 
+> **Note**: If your terminal says `agenticflow: command not found`, you may need to refresh your shell (`source ~/.zshrc` or `source ~/.bashrc`). Alternatively, you can always run it using `npx agenticflow` instead of just `agenticflow`.
+
 ### 2. Setup & Start
 
 Run the guided setup wizard to configure your environment, master password, and any external integrations (like Jira/Confluence):
