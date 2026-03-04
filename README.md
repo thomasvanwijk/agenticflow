@@ -41,11 +41,22 @@ AI Client (Claude / Cursor / Custom)
 ```bash
 git clone https://github.com/YOUR_USERNAME/agenticflow.git
 cd agenticflow
+```
+
+#### Option A: Manual Configuration
+```bash
 cp config/config.example.yaml config/config.yaml
 cp config/servers.example.yaml config/servers.yaml
 ```
+Edit `config/config.yaml` and `.json` files with your vault path and API keys.
 
-Edit `config/config.yaml` with your vault path and API keys.
+#### Option B: Secure Secret Manager (Recommended)
+You can use the built-in CLI secret manager to encrypt credentials instead of storing plaintext keys:
+1. `cd secret-manager && npm install && npm run build && npm link`
+2. Define a master password via env (`export AGENTICFLOW_MASTER_PASSWORD="your-secure-password"`) or you will be prompted.
+3. Add secrets with `agenticflow-secrets set SECRET_NAME "secret_value"`.
+4. Ensure your `config/*.example.*` files use the `${SECRET_NAME}` syntax for values.
+5. In `.env`, set `AGENTICFLOW_MASTER_PASSWORD`. On startup, gateway will inject these securely into the `config` directory.
 
 ### 2. Start the stack
 

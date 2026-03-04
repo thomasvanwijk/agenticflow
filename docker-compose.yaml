@@ -11,11 +11,13 @@ services:
       - "${HOST_PORT:-18080}:8080"
     environment:
       - DATABASE_URL=postgres://agenticflow:${POSTGRES_PASSWORD:-changeme}@postgres:5432/agenticflow
+      - AGENTICFLOW_MASTER_PASSWORD=${AGENTICFLOW_MASTER_PASSWORD:-}
     volumes:
       # Allows filesystem MCP server to access the host
       - "${VAULT_PATH:-./data/vault}:/vault:ro"
       # Config directory for MCP server registration JSON files
-      - ./config:/config:ro
+      # Use rw to allow secret injection to write the real config files
+      - ./config:/config:rw
     depends_on:
       postgres:
         condition: service_healthy
