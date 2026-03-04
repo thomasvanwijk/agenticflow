@@ -266,7 +266,7 @@ program
         const waitSpinner = ora("Waiting for MCPJungle registry to become healthy...").start();
         while (true) {
             try {
-                const out = execSync("docker exec agenticflow-gateway mcpjungle list tools", { stdio: "pipe" }).toString();
+                const out = execSync("docker exec agenticflow-gateway mcpjungle list tools 2>&1", { stdio: "pipe" }).toString();
                 if (out.includes("agenticflow__semantic_search")) {
                     break;
                 }
