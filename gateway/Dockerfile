@@ -12,9 +12,11 @@ FROM node:22-alpine AS memory-builder
 WORKDIR /app
 COPY agenticflow-memory-mcp/package*.json ./
 RUN npm install && \
-    # Remove glibc-dependent native ONNX binary, replace with pure WASM build.
-    # Alpine Linux uses musl libc — the native onnxruntime-node binary requires glibc.
+    # @huggingface/transformers ships onnxruntime-node (glibc native binary) as a dep.
+    # Alpine Linux uses musl libc — the .so file cannot be loaded. We delete the native
+    # binary directory entirely so Node falls back to onnxruntime-web (pure WASM).
     npm uninstall onnxruntime-node && \
+    rm -rf node_modules/onnxruntime-node && \
     npm install onnxruntime-web
 COPY agenticflow-memory-mcp/ .
 RUN npm run build
