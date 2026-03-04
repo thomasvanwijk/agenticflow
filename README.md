@@ -45,7 +45,11 @@ npm install
 npm link
 ```
 
-> **Note**: If your terminal says `agenticflow: command not found`, you may need to refresh your shell (`source ~/.zshrc` or `source ~/.bashrc`). Alternatively, you can always run it using `npx agenticflow` instead of just `agenticflow`.
+> **Note**: If your terminal says `agenticflow: command not found`, your system's `PATH` is likely missing the global npm bin directory (very common on Linux servers). Run this to fix it permanently:
+> ```bash
+> export PATH="$(npm config get prefix)/bin:$PATH"
+> echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.bashrc
+> ```
 
 ### 2. Setup & Start
 
