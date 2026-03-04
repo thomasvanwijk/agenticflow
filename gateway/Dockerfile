@@ -38,5 +38,7 @@ RUN npm install -g mcp-atlassian jsdom && \
 HEALTHCHECK --interval=30s --timeout=3s \
     CMD node -e "fetch('http://localhost:8080/health').then(r => r.ok ? process.exit(0) : process.exit(1))"
 
-ENTRYPOINT ["/mcpjungle"]
-CMD ["start"]
+COPY gateway/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

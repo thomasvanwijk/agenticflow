@@ -9,6 +9,11 @@ import path from "path";
 import matter from "gray-matter";
 import { ChromaClient } from "chromadb";
 import type { Collection } from "chromadb";
+import { execFile } from "child_process";
+import { promisify } from "util";
+
+const execFileAsync = promisify(execFile);
+
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -392,6 +397,37 @@ server.tool(
       return { content: [{ type: "text", text: `Tool index refreshed. Indexed ${indexed} tools.` }] };
     } catch (err) {
       return { content: [{ type: "text", text: `Refresh failed: ${(err as Error).message}` }] };
+    }
+  }
+);
+
+// ─── Tool: Call tool (proxy executor) ────────────────────────────────────────
+server.tool(
+  "call_tool",
+  "Execute a specific MCP tool by name. Use discover_tools first to find the right tool name, then call it here. This works for all tools including Jira, Confluence, and other integrations.",
+  {
+    tool_name: z.string().describe("The exact tool name to call (e.g., 'atlassian__search_jira_issues')"),
+    input: z.record(z.unknown()).optional().default({}).describe("JSON input parameters for the tool"),
+  },
+  async ({ tool_name, input }) => {
+    try {
+      const inputJson = JSON.stringify(input ?? {});
+
+      const { stdout, stderr } = await execFileAsync(
+        "/mcpjungle",
+        ["invoke", tool_name, "--input", inputJson, "--registry", "http://127.0.0.1:8080"],
+        { timeout: 60000 } // 60s timeout for slow tools
+      );
+
+      if (stderr && !stdout) {
+        return { content: [{ type: "text", text: `Tool call failed:\n${stderr}` }] };
+      }
+
+      return { content: [{ type: "text", text: stdout || "(tool returned no output)" }] };
+    } catch (err) {
+      const error = err as { stdout?: string; stderr?: string; message?: string };
+      const detail = error.stdout || error.stderr || error.message || String(err);
+      return { content: [{ type: "text", text: `call_tool failed: ${detail}\n\nTip: Verify the tool name is correct using discover_tools.` }] };
     }
   }
 );
