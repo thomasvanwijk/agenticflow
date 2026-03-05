@@ -27,6 +27,11 @@ const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "Xenova/jina-embeddings-v
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://host.docker.internal:11434";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 
+if (!fs.existsSync(VAULT_PATH)) {
+  process.stderr.write(`[agenticflow-memory] CRITICAL: VAULT_PATH does not exist: ${VAULT_PATH}\n`);
+  process.stderr.write(`Please ensure your vault directory is correctly mounted to ${VAULT_PATH} in docker-compose.yaml\n`);
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function walkVault(dir: string, results: string[] = []): string[] {
@@ -267,6 +272,9 @@ server.tool(
       const files = walkVault(VAULT_PATH);
 
       if (!files.length) {
+        if (!fs.existsSync(VAULT_PATH)) {
+          throw new Error(`Vault directory not found at ${VAULT_PATH}. Please check your volume configuration.`);
+        }
         return { content: [{ type: "text", text: `No markdown files found in vault at ${VAULT_PATH}` }] };
       }
 
