@@ -384,16 +384,16 @@ program
                 "mcpServers": {
                     "agenticflow-remote": {
                         "command": "npx",
-                        "args": ["-y", "mcp-remote", "http://YOUR_HOST_OR_IP:18080/mcp", "--allow-http", "--header", `Authorization: Basic ${b64Creds}`]
+                        "args": ["-y", "mcp-remote", `http://YOUR_HOST_OR_IP:${envVars.HOST_PORT}/mcp`, "--allow-http", "--header", `Authorization: Basic ${b64Creds}`]
                     }
                 }
             }, null, 2));
 
             console.log(`\n2. For direct SSE clients (Perplexity, custom apps):`);
-            console.log(`URL: http://YOUR_HOST_OR_IP:18080/mcp`);
+            console.log(`URL: http://YOUR_HOST_OR_IP:${envVars.HOST_PORT}/mcp`);
             console.log(`Auth Header: Authorization: Basic ${b64Creds}`);
             console.log(`--------------------------------------------------------------------------------`);
-            console.log(`🔒 SECURITY NOTE: The example above uses HTTP (over port 18080).`);
+            console.log(`🔒 SECURITY NOTE: The example above uses HTTP (over port ${envVars.HOST_PORT}).`);
             console.log(`   For secure remote access, we recommend using a tunnel (Tailscale or Cloudflare)`);
             console.log(`   to provide an HTTPS endpoint. If you do, use the https:// URL and`);
             console.log(`   remove "--allow-http" from the npx args.`);
