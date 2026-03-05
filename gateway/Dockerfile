@@ -25,14 +25,20 @@ COPY cli/ .
 RUN npm run build
 
 # Stage 4: Runtime
-FROM node:24-alpine
+FROM node:24-bookworm-slim
 
-# Copy MCPJungle binary and certs
-COPY --from=mcpjungle-builder /mcpjungle /mcpjungle
-COPY --from=mcpjungle-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-RUN ln -s /mcpjungle /usr/local/bin/mcpjungle
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    git \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy compiled memory MCP (MCPJungle will spawn it via STDIO)
+# Copy MCPJungle binary
+COPY --from=mcpjungle-builder /mcpjungle /usr/local/bin/mcpjungle
+
+# Copy compiled memory MCP
 COPY --from=memory-builder /app /app/agenticflow-memory-mcp
 
 # Copy cli and link the agenticflow global command
@@ -41,15 +47,14 @@ RUN cd /app/cli && npm link
 
 WORKDIR /
 
-# Install npm-based MCP servers that MCPJungle will spawn via STDIO transport
-# Install npm-based MCP servers and patch Jira search API (which was recently changed by Atlassian)
+# Install npm-based MCP servers and patch Jira search API
 RUN npm install -g mcp-atlassian jsdom && \
     sed -i 's/response.data.issues.map/(response.data.issues || []).map/g' /usr/local/lib/node_modules/mcp-atlassian/dist/jira/handlers.js && \
     sed -i "s|/rest/api/3/search|/rest/api/3/search/jql|g" /usr/local/lib/node_modules/mcp-atlassian/dist/jira/handlers.js
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s \
-    CMD node -e "fetch('http://localhost:8080/health').then(r => r.ok ? process.exit(0) : process.exit(1))"
+    CMD curl -f http://localhost:8080/health || exit 1
 
 COPY gateway/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

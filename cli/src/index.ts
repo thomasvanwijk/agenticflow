@@ -249,14 +249,18 @@ program
         const oldMemoryJson = path.join(configDir, "memory.json");
         const memoryExample = path.join(configDir, "agenticflow.example.json");
 
-        // Migration: If old memory.json exists but new agenticflow.json doesn't, rename it
-        if (fs.existsSync(oldMemoryJson) && !fs.existsSync(memoryJson)) {
+        // Migration: If old memory.json exists, migrate it to agenticflow.json
+        if (fs.existsSync(oldMemoryJson)) {
             try {
-                const config = JSON.parse(fs.readFileSync(oldMemoryJson, "utf8"));
-                config.name = "agenticflow";
-                fs.writeFileSync(memoryJson, JSON.stringify(config, null, 4));
+                if (!fs.existsSync(memoryJson)) {
+                    const config = JSON.parse(fs.readFileSync(oldMemoryJson, "utf8"));
+                    config.name = "agenticflow";
+                    fs.writeFileSync(memoryJson, JSON.stringify(config, null, 4));
+                    ora().succeed(`Migrated ${path.basename(oldMemoryJson)} to ${path.basename(memoryJson)} and updated internal name.`);
+                } else {
+                    ora().info(`Found legacy ${path.basename(oldMemoryJson)} but ${path.basename(memoryJson)} already exists. Removing legacy file.`);
+                }
                 fs.unlinkSync(oldMemoryJson);
-                ora().succeed(`Migrated ${path.basename(oldMemoryJson)} to ${path.basename(memoryJson)} and updated internal name.`);
             } catch (err) {
                 console.error("⚠️ Failed to migrate memory.json", err);
             }
