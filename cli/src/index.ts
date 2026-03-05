@@ -117,8 +117,36 @@ program
     .command("setup")
     .description("Guided installation wizard for a fresh Agenticflow instance")
     .option("--rebuild", "Force a full rebuild of Docker containers without using cache")
+    .option("--all", "Setup everything (CLI and Gateway) (default)")
+    .option("--gateway", "Setup only the Gateway")
+    .option("--cli", "Setup only the CLI")
     .action(async (options) => {
         console.log("\n🚀 Welcome to Agenticflow Setup!\n");
+
+        const setupAll = options.all || (!options.gateway && !options.cli);
+        const setupCli = setupAll || options.cli;
+        const setupGateway = setupAll || options.gateway;
+
+        if (setupCli) {
+            console.log("Setting up CLI...");
+            try {
+                const isRoot = fs.existsSync(path.resolve(process.cwd(), "cli", "package.json"));
+                const cliDir = isRoot ? path.resolve(process.cwd(), "cli") : process.cwd();
+                if (fs.existsSync(path.resolve(cliDir, "package.json"))) {
+                    execSync("npm install && npm run build && npm link", { cwd: cliDir, stdio: "ignore" });
+                    ora().succeed("CLI installed and linked successfully.");
+                } else {
+                    ora().info("Not running from source repository, skipping CLI link.");
+                }
+            } catch (err) {
+                ora().fail(`Failed to setup CLI: ${(err as Error).message}`);
+            }
+        }
+
+        if (!setupGateway) {
+            console.log("\n✅ Setup complete.");
+            return;
+        }
 
         // Step 1: Prerequisites
         const spinner = ora("Checking prerequisites (Docker, Node, npm)...").start();
@@ -636,55 +664,89 @@ secretsCmd
 
 program
     .command("uninstall")
-    .description("Completely remove Agenticflow containers, volumes, and configurations")
-    .action(async () => {
-        const { confirm } = await inquirer.prompt([
-            {
-                type: "confirm",
-                name: "confirm",
-                message: "⚠️  WARNING: This will permanently remove all Agenticflow containers, volumes (databases), and local configuration files. This cannot be undone. Are you sure?",
-                default: false
-            }
-        ]);
+    .description("Completely remove Agenticflow containers, volumes, configurations, and/or CLI")
+    .option("--all", "Uninstall everything (CLI and Gateway) (default)")
+    .option("--gateway", "Uninstall only the Gateway (Docker containers, volumes, configs)")
+    .option("--cli", "Uninstall only the CLI")
+    .option("-f, --force", "Skip confirmation prompt")
+    .action(async (options) => {
+        const uninstallAll = options.all || (!options.gateway && !options.cli);
+        const uninstallGateway = uninstallAll || options.gateway;
+        const uninstallCli = uninstallAll || options.cli;
 
-        if (!confirm) {
-            console.log("Uninstall aborted.");
-            return;
+        if (!options.force) {
+            let msg = "⚠️  WARNING: This will permanently remove ";
+            if (uninstallAll) msg += "all Agenticflow containers, volumes (databases), local configuration files, and the CLI.";
+            else if (uninstallGateway) msg += "all Agenticflow containers, volumes (databases), and local configuration files.";
+            else if (uninstallCli) msg += "the Agenticflow CLI from your system.";
+            msg += " This cannot be undone. Are you sure?";
+
+            const { confirm } = await inquirer.prompt([
+                {
+                    type: "confirm",
+                    name: "confirm",
+                    message: msg,
+                    default: false
+                }
+            ]);
+
+            if (!confirm) {
+                console.log("Uninstall aborted.");
+                return;
+            }
         }
 
         const spinner = ora("Uninstalling Agenticflow...").start();
 
         try {
-            // 1. Docker Cleanup
-            spinner.text = "Stopping and removing Docker containers, volumes, and images...";
-            try {
-                execSync("docker compose down -v --rmi local", { stdio: "ignore" });
-            } catch (err) {
-                // Ignore errors if docker-compose.yaml is missing or docker is not running
+            if (uninstallGateway) {
+                // 1. Docker Cleanup
+                spinner.text = "Stopping and removing Docker containers, volumes, and images...";
+                try {
+                    execSync("docker compose down -v --rmi local", { stdio: "ignore" });
+                } catch (err) {
+                    // Ignore errors if docker-compose.yaml is missing or docker is not running
+                }
+
+                // 2. File Cleanup
+                spinner.text = "Removing local configuration files...";
+                const envPath = path.resolve(process.cwd(), ".env");
+                if (fs.existsSync(envPath)) fs.unlinkSync(envPath);
+
+                const configDir = path.resolve(process.cwd(), "config");
+                if (fs.existsSync(configDir)) {
+                    const files = fs.readdirSync(configDir);
+                    for (const file of files) {
+                        // Keep .example. files and Caddyfile
+                        if (!file.includes(".example.") && file !== "Caddyfile") {
+                            const fullPath = path.join(configDir, file);
+                            if (fs.statSync(fullPath).isFile()) {
+                                fs.unlinkSync(fullPath);
+                            }
+                        }
+                    }
+                }
             }
 
-            // 2. File Cleanup
-            spinner.text = "Removing local configuration files...";
-            const filesToRemove = [
-                ".env",
-                "config/agenticflow.json",
-                "config/atlassian.json",
-                "config/servers.yaml",
-                "config/config.yaml",
-                "config/secrets.enc"
-            ];
-
-            filesToRemove.forEach(file => {
-                const fullPath = path.resolve(process.cwd(), file);
-                if (fs.existsSync(fullPath)) {
-                    fs.unlinkSync(fullPath);
+            if (uninstallCli) {
+                spinner.text = "Removing Agenticflow CLI...";
+                try {
+                    // Run this detached or simply log it if it fails because we are executing it
+                    execSync("npm uninstall -g agenticflow", { stdio: "ignore" });
+                } catch (err) {
+                    // In some environments, removing the currently running module might fail
+                    // We'll catch and silently ignore, relying on the fallback message below
                 }
-            });
+            }
 
-            spinner.succeed("Agenticflow has been uninstalled.");
+            spinner.succeed(`Agenticflow ${uninstallAll ? 'completely ' : ''}uninstalled.`);
             console.log("\nNext steps:");
-            console.log("1. To remove the global command, run: npm uninstall -g agenticflow (if you installed it via setup.sh)");
-            console.log("2. You can now safely delete this repository directory if desired.");
+            if (uninstallCli) {
+                console.log("- If the command 'agenticflow' still works, run manually: npm uninstall -g agenticflow");
+            }
+            if (uninstallAll || uninstallGateway) {
+                console.log("- You can now safely delete this repository directory if desired.");
+            }
         } catch (err) {
             spinner.fail(`Uninstall failed: ${(err as Error).message}`);
             process.exit(1);
