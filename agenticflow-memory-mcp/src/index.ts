@@ -606,7 +606,7 @@ server.tool(
       const inputJson = JSON.stringify(input ?? {});
 
       const { stdout, stderr } = await execFileAsync(
-        "/mcpjungle",
+        "mcpjungle",
         ["invoke", tool_name, "--input", inputJson, "--registry", "http://127.0.0.1:8080"],
         { timeout: 60000 } // 60s timeout for slow tools
       );
