@@ -11,6 +11,8 @@ import { ChromaClient } from "chromadb";
 import type { Collection } from "chromadb";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import os from "os";
+import chokidar from "chokidar";
 
 const execFileAsync = promisify(execFile);
 
@@ -614,6 +616,98 @@ server.tool(
   }
 );
 
+// ─── Auto-Indexer ─────────────────────────────────────────────────────────────
+
+async function startAutoIndexer() {
+  try {
+    const isLowHardware = os.totalmem() < 4 * 1024 * 1024 * 1024 || os.cpus().length <= 2;
+    process.stderr.write(`[agenticflow-memory] Auto-indexer starting. Hardware profile: ${isLowHardware ? 'Low (tuned for Chromebox)' : 'Standard'}\n`);
+
+    const collection = await getCollection();
+
+    const watcher = chokidar.watch(path.join(VAULT_PATH, "**/*.md"), {
+      ignored: [
+        /(^|[/\\])\../, // ignore dotfiles/folders like .obsidian or .git
+        "**/node_modules/**"
+      ],
+      persistent: true,
+      usePolling: false, // Default to fs.watch, relies on native OS events which is lighter
+      depth: isLowHardware ? 5 : 99,
+      awaitWriteFinish: {
+        stabilityThreshold: 5000,
+        pollInterval: 500
+      }
+    });
+
+    watcher.on('add', async (filePath) => {
+      try {
+        const relPath = path.relative(VAULT_PATH, filePath);
+        const { content, data } = readNote(filePath);
+        if (!content.trim()) return;
+
+        const stat = fs.statSync(filePath);
+        const id = relPath.replace(/\\/g, "/");
+
+        // Check if already indexed with same mtime
+        const existing = await collection.get({ ids: [id] });
+        if (existing.ids.length > 0) {
+          const meta = existing.metadatas?.[0] as Record<string, unknown> | undefined;
+          if (meta && meta.mtime === Math.floor(stat.mtimeMs)) return;
+        }
+
+        const embedding = await generateEmbedding(content);
+        await collection.upsert({
+          ids: [id],
+          embeddings: [embedding],
+          documents: [content.slice(0, 8000)],
+          metadatas: [{ path: id, title: String(data.title || path.basename(filePath, ".md")), mtime: Math.floor(stat.mtimeMs) }],
+        });
+        process.stderr.write(`[agenticflow-memory] Auto-indexed: ${id}\n`);
+      } catch (err) {
+        process.stderr.write(`[agenticflow-memory] Failed to auto-index ${filePath}: ${(err as Error).message}\n`);
+      }
+    });
+
+    watcher.on('change', async (filePath) => {
+      try {
+        const relPath = path.relative(VAULT_PATH, filePath);
+        const { content, data } = readNote(filePath);
+        if (!content.trim()) return;
+
+        const stat = fs.statSync(filePath);
+        const id = relPath.replace(/\\/g, "/");
+
+        const embedding = await generateEmbedding(content);
+        await collection.upsert({
+          ids: [id],
+          embeddings: [embedding],
+          documents: [content.slice(0, 8000)],
+          metadatas: [{ path: id, title: String(data.title || path.basename(filePath, ".md")), mtime: Math.floor(stat.mtimeMs) }],
+        });
+        process.stderr.write(`[agenticflow-memory] Auto-updated: ${id}\n`);
+      } catch (err) {
+        process.stderr.write(`[agenticflow-memory] Failed to auto-update ${filePath}: ${(err as Error).message}\n`);
+      }
+    });
+
+    watcher.on('unlink', async (filePath) => {
+      try {
+        const relPath = path.relative(VAULT_PATH, filePath);
+        const id = relPath.replace(/\\/g, "/");
+        await collection.delete({ ids: [id] });
+        process.stderr.write(`[agenticflow-memory] Auto-removed: ${id}\n`);
+      } catch (err) {
+        // It might already be gone
+      }
+    });
+
+  } catch (err) {
+    process.stderr.write(`[agenticflow-memory] Failed to start auto-indexer: ${(err as Error).message}\n`);
+  }
+}
+
 // ─── Start ─────────────────────────────────────────────────────────────────────
+startAutoIndexer();
+
 const transport = new StdioServerTransport();
 await server.connect(transport);

@@ -169,9 +169,9 @@ program
                 name: "EMBEDDING_PROVIDER",
                 message: "Which embedding provider do you want to use for semantic search?",
                 choices: [
-                    { name: "local (recommended) — WASM, no Ollama needed, ~23MB model auto-downloads", value: "local" },
-                    { name: "ollama — requires Ollama running on host", value: "ollama" },
-                    { name: "openai — requires an OpenAI API key", value: "openai" }
+                    { name: "local (recommended) — English only, WASM, no Ollama needed (~65MB)", value: "local" },
+                    { name: "ollama — Multi-lingual (depends on model), requires Ollama", value: "ollama" },
+                    { name: "openai — Best Multi-lingual quality, requires OpenAI API key", value: "openai" }
                 ],
                 default: envVars.EMBEDDING_PROVIDER || "local"
             }
@@ -250,6 +250,21 @@ program
         if (!fs.existsSync(memoryJson) && fs.existsSync(memoryExample)) {
             fs.copyFileSync(memoryExample, memoryJson);
             ora().succeed("Bootstrapped config/memory.json from example.");
+        }
+
+        // --- Sync config/memory.json with selected embedding ---
+        if (fs.existsSync(memoryJson)) {
+            try {
+                const memConfig = JSON.parse(fs.readFileSync(memoryJson, "utf8"));
+                memConfig.env = memConfig.env || {};
+                memConfig.env.EMBEDDING_PROVIDER = envVars.EMBEDDING_PROVIDER;
+                if (envVars.EMBEDDING_PROVIDER === "local") {
+                    memConfig.env.EMBEDDING_MODEL = "Xenova/jina-embeddings-v2-small-en";
+                }
+                fs.writeFileSync(memoryJson, JSON.stringify(memConfig, null, 4), "utf8");
+            } catch (err) {
+                console.error("⚠️ Failed to update config/memory.json during setup", err);
+            }
         }
 
         // Step 3: Secrets Integration
@@ -408,9 +423,9 @@ program
                 name: "provider",
                 message: "Select your active embedding provider:",
                 choices: [
-                    { name: "local (recommended) — WASM, no external server needed", value: "local" },
-                    { name: "ollama — requires Ollama running on host", value: "ollama" },
-                    { name: "openai — requires an OpenAI API key", value: "openai" }
+                    { name: "local (recommended) — English only, WASM, no Ollama needed (~65MB)", value: "local" },
+                    { name: "ollama — Multi-lingual (depends on model), requires Ollama", value: "ollama" },
+                    { name: "openai — Best Multi-lingual quality, requires OpenAI API key", value: "openai" }
                 ],
                 default: envVars.EMBEDDING_PROVIDER || "local"
             }
@@ -464,6 +479,21 @@ program
                     return `${k}=${v}`;
                 }).join("\n");
                 fs.writeFileSync(ENV_FILE, finalEnv, "utf8");
+            }
+        }
+
+        // Sync to config/memory.json
+        const memoryJsonPath = path.join(process.cwd(), "config", "memory.json");
+        if (fs.existsSync(memoryJsonPath)) {
+            try {
+                const memoryJson = JSON.parse(fs.readFileSync(memoryJsonPath, "utf8"));
+                memoryJson.env = memoryJson.env || {};
+                memoryJson.env.EMBEDDING_PROVIDER = envVars.EMBEDDING_PROVIDER;
+                if (envVars.EMBEDDING_PROVIDER === "local") memoryJson.env.EMBEDDING_MODEL = "Xenova/jina-embeddings-v2-small-en";
+                else if (envVars.EMBEDDING_MODEL) memoryJson.env.EMBEDDING_MODEL = envVars.EMBEDDING_MODEL;
+                fs.writeFileSync(memoryJsonPath, JSON.stringify(memoryJson, null, 4), "utf8");
+            } catch (err) {
+                console.error("⚠️ Failed to update config/memory.json", err);
             }
         }
 
