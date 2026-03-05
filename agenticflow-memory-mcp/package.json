@@ -10,12 +10,13 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.6.0",
     "@chroma-core/default-embed": "^0.1.9",
     "@huggingface/transformers": "^3.3.3",
-    "chromadb": "^3.3.1",
+    "@modelcontextprotocol/sdk": "^1.6.0",
     "chokidar": "^3.6.0",
+    "chromadb": "^3.3.1",
     "gray-matter": "^4.0.3",
+    "onnxruntime-node": "npm:onnxruntime-web@^1.20.1",
     "zod": "^3.22.0"
   },
   "devDependencies": {
