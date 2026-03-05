@@ -56,13 +56,25 @@ for conf in "${CONFIG_DIR}"/*.json; do
   fi
 done
 
-# ── 4. Disable servers that should be hidden from MCP clients ─────────────────
+# ── 4. Clean up old servers (those whose config files are gone) ───────────────
+echo "[agenticflow] Cleaning up old servers..."
+for server in $(mcpjungle list servers --registry "$REGISTRY" 2>/dev/null); do
+  # Skip built-in or required servers if necessary.
+  # For now, we assume if <server>.json is missing from /config, it should go.
+  if [ ! -f "${CONFIG_DIR}/${server}.json" ]; then
+    echo "[agenticflow]   - ${server}: config missing, unregistering..."
+    mcpjungle unregister "$server" --registry "$REGISTRY" 2>/dev/null || \
+      echo "[agenticflow]   WARNING: could not unregister ${server}"
+  fi
+done
+
+# ── 5. Disable servers that should be hidden from MCP clients ─────────────────
 # Atlassian tools are available for proxy invocation but hidden to save context.
 echo "[agenticflow] Hiding atlassian tools from MCP client tool list..."
 mcpjungle disable server atlassian --registry "$REGISTRY" 2>/dev/null || \
   echo "[agenticflow]   WARNING: could not disable atlassian (may already be disabled)"
 
-# ── 5. Seed the tool discovery index ──────────────────────────────────────────
+# ── 6. Seed the tool discovery index ──────────────────────────────────────────
 # Runs in background — memory may take a moment to spawn
 echo "[agenticflow] Seeding tool discovery index (background)..."
 (
@@ -71,6 +83,6 @@ echo "[agenticflow] Seeding tool discovery index (background)..."
     sed 's/^/[agenticflow][tool-index] /'
 ) &
 
-# ── 6. Hand off to MCPJungle (foreground) ─────────────────────────────────────
+# ── 7. Hand off to MCPJungle (foreground) ─────────────────────────────────────
 echo "[agenticflow] Startup complete. Handing off to MCPJungle (PID: ${MCPJUNGLE_PID})."
 wait $MCPJUNGLE_PID
