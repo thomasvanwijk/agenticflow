@@ -341,12 +341,36 @@ program
         ]);
 
         let remotePwd = "";
+        let isNewPassword = false;
         if (setupRemote) {
             console.log("⚠️ You must expose this proxy via an HTTPS tunnel (e.g. Cloudflare Tunnels) or Tailscale HTTPS. Exposing it over plain HTTP is insecure.");
-            remotePwd = generatePassword(24);
-            const hashed = bcrypt.hashSync(remotePwd, 10);
-            envVars.AGENTICFLOW_REMOTE_USER = "agenticflow";
-            envVars.AGENTICFLOW_REMOTE_PASSWORD_HASH = hashed;
+            
+            const { customPwd } = await inquirer.prompt([
+                { 
+                    type: "password", 
+                    name: "customPwd", 
+                    message: "Enter a password for the 'agenticflow' user (leave blank to auto-generate or keep existing):", 
+                    mask: "*" 
+                }
+            ]);
+
+            if (customPwd) {
+                remotePwd = customPwd;
+                isNewPassword = true;
+                const hashed = bcrypt.hashSync(remotePwd, 10);
+                envVars.AGENTICFLOW_REMOTE_USER = "agenticflow";
+                envVars.AGENTICFLOW_REMOTE_PASSWORD_HASH = hashed;
+            } else if (!envVars.AGENTICFLOW_REMOTE_PASSWORD_HASH || envVars.AGENTICFLOW_REMOTE_PASSWORD_HASH === "disabled_user" || !envVars.AGENTICFLOW_REMOTE_PASSWORD_HASH.startsWith("$2")) {
+                remotePwd = generatePassword(24);
+                isNewPassword = true;
+                const hashed = bcrypt.hashSync(remotePwd, 10);
+                envVars.AGENTICFLOW_REMOTE_USER = "agenticflow";
+                envVars.AGENTICFLOW_REMOTE_PASSWORD_HASH = hashed;
+            } else {
+                // Keep existing hash
+                envVars.AGENTICFLOW_REMOTE_USER = "agenticflow";
+                ora().info("Preserving existing remote access password.");
+            }
 
             const updatedEnvContent = Object.entries(envVars).map(([k, v]) => {
                 // If a value contains a '$' (like a bcrypt hash), wrap it in single quotes
@@ -357,7 +381,12 @@ program
                 return `${k}=${v}`;
             }).join("\n");
             fs.writeFileSync(ENV_FILE, updatedEnvContent, "utf8");
-            ora().succeed(`Remote Access enabled. Generated user: agenticflow`);
+            
+            if (isNewPassword && !customPwd) {
+                ora().succeed(`Remote Access enabled. Generated user: agenticflow`);
+            } else if (customPwd) {
+                ora().succeed(`Remote Access enabled. User: agenticflow (Custom password set)`);
+            }
         }
 
         // Step 4: Bootstrap
@@ -400,11 +429,16 @@ program
         console.log("\n🎉 Setup Complete! 🎉\n");
 
         if (setupRemote) {
-            const b64Creds = Buffer.from(`agenticflow:${remotePwd}`).toString("base64");
+            const b64Creds = Buffer.from(`agenticflow:${remotePwd || "<YOUR_PASSWORD>"}`).toString("base64");
             console.log(`\n✅ REMOTE ACCESS ENABLED`);
             console.log(`--------------------------------------------------------------------------------`);
-            console.log(`IMPORTANT: Your Remote Access Password is: ${remotePwd}`);
-            console.log(`Save this password! It will not be shown again.\n`);
+            if (isNewPassword) {
+                console.log(`IMPORTANT: Your Remote Access Password is: ${remotePwd}`);
+                console.log(`Save this password! It will not be shown again.\n`);
+            } else {
+                console.log(`IMPORTANT: You are using your existing Remote Access Password.`);
+                console.log(`If you forgot it, run 'agenticflow setup' again to provide a new one.\n`);
+            }
 
             console.log(`1. For Claude Desktop (connecting via mcp-remote proxy):`);
             console.log(`Add this to your local claude_desktop_config.json:`);
