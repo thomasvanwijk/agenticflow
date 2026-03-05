@@ -383,6 +383,113 @@ program
         }
     });
 
+// --- Embedding Provider Management ---
+
+program
+    .command("embedding")
+    .description("Switch and configure the embedding provider for semantic search")
+    .action(async () => {
+        console.log("\n🧠 Embedding Provider Configuration\n");
+
+        let envVars: Record<string, string> = {};
+        if (fs.existsSync(ENV_FILE)) {
+            const parsed = dotenv.parse(fs.readFileSync(ENV_FILE));
+            envVars = { ...parsed };
+        }
+
+        const { provider } = await inquirer.prompt([
+            {
+                type: "list",
+                name: "provider",
+                message: "Select your active embedding provider:",
+                choices: [
+                    { name: "local (recommended) — WASM, no external server needed", value: "local" },
+                    { name: "ollama — requires Ollama running on host", value: "ollama" },
+                    { name: "openai — requires an OpenAI API key", value: "openai" }
+                ],
+                default: envVars.EMBEDDING_PROVIDER || "local"
+            }
+        ]);
+
+        envVars.EMBEDDING_PROVIDER = provider;
+
+        // Prerequisites Check
+        if (provider === "ollama") {
+            const hasOllama = runShell("ollama --version", true);
+            if (!hasOllama) {
+                console.log("\n⚠️ Ollama does not appear to be installed on this system.");
+                console.log("Please install it from https://ollama.com/download to use this provider.");
+            } else {
+                console.log("\n✅ Ollama is installed. Ensure the server is running and you have pulled your desired model.");
+            }
+        } else if (provider === "openai") {
+            if (!envVars.OPENAI_API_KEY) {
+                console.log("\n⚠️ OpenAI API Key is missing from your environment.");
+                const { apiKey } = await inquirer.prompt([
+                    { type: "password", name: "apiKey", message: "Enter your OpenAI API Key:", mask: "*" }
+                ]);
+                if (apiKey) {
+                    envVars.OPENAI_API_KEY = apiKey;
+                    console.log("✅ API Key saved to environment.");
+                } else {
+                    console.error("❌ API Key is required for the OpenAI provider.");
+                    process.exit(1);
+                }
+            } else {
+                console.log("\n✅ Existing OpenAI API Key detected.");
+            }
+        } else if (provider === "local") {
+            console.log("\n✅ Local embedding configured. The model will download automatically if not already cached.");
+        }
+
+        // Save back to .env
+        const updatedEnvContent = Object.entries(envVars).map(([k, v]) => {
+            if (typeof v === "string" && v.includes("$")) return `${k}='${v}'`;
+            return `${k}=${v}`;
+        }).join("\n");
+        fs.writeFileSync(ENV_FILE, updatedEnvContent, "utf8");
+
+        // Ensure memory.json reflects the default model if switching back to local
+        if (provider === "local") {
+            if (!envVars.EMBEDDING_MODEL || envVars.EMBEDDING_MODEL !== "Xenova/all-MiniLM-L6-v2") {
+                console.log("Setting default local model: Xenova/all-MiniLM-L6-v2");
+                envVars.EMBEDDING_MODEL = "Xenova/all-MiniLM-L6-v2";
+                const finalEnv = Object.entries(envVars).map(([k, v]) => {
+                    if (typeof v === "string" && v.includes("$")) return `${k}='${v}'`;
+                    return `${k}=${v}`;
+                }).join("\n");
+                fs.writeFileSync(ENV_FILE, finalEnv, "utf8");
+            }
+        }
+
+        ora().succeed(`Embedding provider switched to: ${provider}`);
+
+        console.log("\n⚠️ When changing providers, your vector dimensions and models change.");
+        console.log("To prevent stale or mixed search results, it is highly recommended to re-index your vault into the new provider's collection.\n");
+
+        const { doIndex } = await inquirer.prompt([
+            { type: "confirm", name: "doIndex", message: "Would you like to re-index your Obsidian vault now?", default: true }
+        ]);
+
+        if (doIndex) {
+            console.log("\nRestarting memory MCP to apply new provider before indexing...");
+            runShell("docker compose restart agenticflow-gateway", true);
+            const idxSpinner = ora("Indexing vault via MCP... (this may take a moment)").start();
+
+            // Give the gateway a moment to reconnect
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+            try {
+                execSync("docker exec agenticflow-gateway mcpjungle invoke agenticflow__index_vault", { stdio: "ignore" });
+                idxSpinner.succeed("Vault successfully indexed with the new provider!");
+            } catch (err) {
+                idxSpinner.fail("Indexing failed. The gateway might still be starting, or the memory container failed to load. Run it manually via the MCP tool or check the logs.");
+            }
+        }
+
+        console.log("\n");
+    });
+
 // --- Secrets Sub-commands ---
 
 const secretsCmd = program.command("secrets").description("Manage encrypted secrets");
