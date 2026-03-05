@@ -28,7 +28,7 @@ const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://host.docker.inter
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 
 if (!fs.existsSync(VAULT_PATH)) {
-  process.stderr.write(`[agenticflow-memory] CRITICAL: VAULT_PATH does not exist: ${VAULT_PATH}\n`);
+  process.stderr.write(`[agenticflow] CRITICAL: VAULT_PATH does not exist: ${VAULT_PATH}\n`);
   process.stderr.write(`Please ensure your vault directory is correctly mounted to ${VAULT_PATH} in docker-compose.yaml\n`);
 }
 
@@ -171,7 +171,7 @@ async function getCollection(name?: string): Promise<Collection> {
 // ─── Server ───────────────────────────────────────────────────────────────────
 
 const server = new McpServer({
-  name: "agenticflow-memory",
+  name: "agenticflow",
   version: "0.3.0",
 });
 
@@ -629,7 +629,7 @@ server.tool(
 async function startAutoIndexer() {
   try {
     const isLowHardware = os.totalmem() < 4 * 1024 * 1024 * 1024 || os.cpus().length <= 2;
-    process.stderr.write(`[agenticflow-memory] Auto-indexer starting. Hardware profile: ${isLowHardware ? 'Low (tuned for Chromebox)' : 'Standard'}\n`);
+    process.stderr.write(`[agenticflow] Auto-indexer starting. Hardware profile: ${isLowHardware ? 'Low (tuned for Chromebox)' : 'Standard'}\n`);
 
     const collection = await getCollection();
 
@@ -670,9 +670,9 @@ async function startAutoIndexer() {
           documents: [content.slice(0, 8000)],
           metadatas: [{ path: id, title: String(data.title || path.basename(filePath, ".md")), mtime: Math.floor(stat.mtimeMs) }],
         });
-        process.stderr.write(`[agenticflow-memory] Auto-indexed: ${id}\n`);
+        process.stderr.write(`[agenticflow] Auto-indexed: ${id}\n`);
       } catch (err) {
-        process.stderr.write(`[agenticflow-memory] Failed to auto-index ${filePath}: ${(err as Error).message}\n`);
+        process.stderr.write(`[agenticflow] Failed to auto-index ${filePath}: ${(err as Error).message}\n`);
       }
     });
 
@@ -692,9 +692,9 @@ async function startAutoIndexer() {
           documents: [content.slice(0, 8000)],
           metadatas: [{ path: id, title: String(data.title || path.basename(filePath, ".md")), mtime: Math.floor(stat.mtimeMs) }],
         });
-        process.stderr.write(`[agenticflow-memory] Auto-updated: ${id}\n`);
+        process.stderr.write(`[agenticflow] Auto-updated: ${id}\n`);
       } catch (err) {
-        process.stderr.write(`[agenticflow-memory] Failed to auto-update ${filePath}: ${(err as Error).message}\n`);
+        process.stderr.write(`[agenticflow] Failed to auto-update ${filePath}: ${(err as Error).message}\n`);
       }
     });
 
@@ -703,14 +703,14 @@ async function startAutoIndexer() {
         const relPath = path.relative(VAULT_PATH, filePath);
         const id = relPath.replace(/\\/g, "/");
         await collection.delete({ ids: [id] });
-        process.stderr.write(`[agenticflow-memory] Auto-removed: ${id}\n`);
+        process.stderr.write(`[agenticflow] Auto-removed: ${id}\n`);
       } catch (err) {
         // It might already be gone
       }
     });
 
   } catch (err) {
-    process.stderr.write(`[agenticflow-memory] Failed to start auto-indexer: ${(err as Error).message}\n`);
+    process.stderr.write(`[agenticflow] Failed to start auto-indexer: ${(err as Error).message}\n`);
   }
 }
 

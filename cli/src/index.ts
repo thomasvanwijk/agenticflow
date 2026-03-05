@@ -245,14 +245,14 @@ program
 
         // Step 2b: Bootstrap core config files from examples if not present
         const configDir = path.resolve(process.cwd(), "config");
-        const memoryJson = path.join(configDir, "memory.json");
-        const memoryExample = path.join(configDir, "memory.example.json");
+        const memoryJson = path.join(configDir, "agenticflow.json");
+        const memoryExample = path.join(configDir, "agenticflow.example.json");
         if (!fs.existsSync(memoryJson) && fs.existsSync(memoryExample)) {
             fs.copyFileSync(memoryExample, memoryJson);
-            ora().succeed("Bootstrapped config/memory.json from example.");
+            ora().succeed("Bootstrapped config/agenticflow.json from example.");
         }
 
-        // --- Sync config/memory.json with selected embedding ---
+        // --- Sync config/agenticflow.json with selected embedding ---
         if (fs.existsSync(memoryJson)) {
             try {
                 const memConfig = JSON.parse(fs.readFileSync(memoryJson, "utf8"));
@@ -263,7 +263,7 @@ program
                 }
                 fs.writeFileSync(memoryJson, JSON.stringify(memConfig, null, 4), "utf8");
             } catch (err) {
-                console.error("⚠️ Failed to update config/memory.json during setup", err);
+                console.error("⚠️ Failed to update config/agenticflow.json during setup", err);
             }
         }
 
@@ -469,7 +469,7 @@ program
         }).join("\n");
         fs.writeFileSync(ENV_FILE, updatedEnvContent, "utf8");
 
-        // Ensure memory.json reflects the default model if switching back to local
+        // Ensure agenticflow.json reflects the default model if switching back to local
         if (provider === "local") {
             if (!envVars.EMBEDDING_MODEL || envVars.EMBEDDING_MODEL !== "Xenova/jina-embeddings-v2-small-en") {
                 console.log("Setting default local model: Xenova/jina-embeddings-v2-small-en");
@@ -482,8 +482,8 @@ program
             }
         }
 
-        // Sync to config/memory.json
-        const memoryJsonPath = path.join(process.cwd(), "config", "memory.json");
+        // Sync to config/agenticflow.json
+        const memoryJsonPath = path.join(process.cwd(), "config", "agenticflow.json");
         if (fs.existsSync(memoryJsonPath)) {
             try {
                 const memoryJson = JSON.parse(fs.readFileSync(memoryJsonPath, "utf8"));
@@ -493,7 +493,7 @@ program
                 else if (envVars.EMBEDDING_MODEL) memoryJson.env.EMBEDDING_MODEL = envVars.EMBEDDING_MODEL;
                 fs.writeFileSync(memoryJsonPath, JSON.stringify(memoryJson, null, 4), "utf8");
             } catch (err) {
-                console.error("⚠️ Failed to update config/memory.json", err);
+                console.error("⚠️ Failed to update config/agenticflow.json", err);
             }
         }
 
