@@ -159,7 +159,7 @@ program
         envVars.EMBEDDING_PROVIDER = envAnswers.EMBEDDING_PROVIDER;
 
         if (envVars.EMBEDDING_PROVIDER === "local") {
-            console.log("\n✅ Local embedding selected. The model (Xenova/all-MiniLM-L6-v2, ~23MB) will");
+            console.log("\n✅ Local embedding selected. The model (Xenova/jina-embeddings-v2-small-en, ~65MB) will");
             console.log("   auto-download on first vault index. No external server needed.");
         }
 
@@ -452,9 +452,9 @@ program
 
         // Ensure memory.json reflects the default model if switching back to local
         if (provider === "local") {
-            if (!envVars.EMBEDDING_MODEL || envVars.EMBEDDING_MODEL !== "Xenova/all-MiniLM-L6-v2") {
-                console.log("Setting default local model: Xenova/all-MiniLM-L6-v2");
-                envVars.EMBEDDING_MODEL = "Xenova/all-MiniLM-L6-v2";
+            if (!envVars.EMBEDDING_MODEL || envVars.EMBEDDING_MODEL !== "Xenova/jina-embeddings-v2-small-en") {
+                console.log("Setting default local model: Xenova/jina-embeddings-v2-small-en");
+                envVars.EMBEDDING_MODEL = "Xenova/jina-embeddings-v2-small-en";
                 const finalEnv = Object.entries(envVars).map(([k, v]) => {
                     if (typeof v === "string" && v.includes("$")) return `${k}='${v}'`;
                     return `${k}=${v}`;

@@ -26,13 +26,14 @@ services:
     # The gateway is now shielded by the auth proxy and not exposed to the host directly.
     environment:
       - DATABASE_URL=postgres://agenticflow:${POSTGRES_PASSWORD:-changeme}@postgres:5432/agenticflow
-      - VAULT_PATH=/vault
-      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-local}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-Xenova/all-MiniLM-L6-v2}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # Required configuration for remote agent context ingestion (Agenticflow memory system)
+      - VAULT_PATH=${VAULT_PATH:-/vault}
       - CHROMA_HOST=chroma
       - CHROMA_PORT=8000
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-local}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-Xenova/jina-embeddings-v2-small-en}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

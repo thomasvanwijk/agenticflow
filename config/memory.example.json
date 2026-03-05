@@ -11,7 +11,7 @@
         "CHROMA_HOST": "chroma",
         "CHROMA_PORT": "8000",
         "EMBEDDING_PROVIDER": "local",
-        "EMBEDDING_MODEL": "Xenova/all-MiniLM-L6-v2",
+        "EMBEDDING_MODEL": "Xenova/jina-embeddings-v2-small-en",
         "OLLAMA_BASE_URL": "http://host.docker.internal:11434"
     },
     "session_mode": "stateful"
