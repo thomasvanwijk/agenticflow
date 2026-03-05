@@ -5,7 +5,7 @@ import crypto from "crypto";
 import path from "path";
 import { Command } from "commander";
 import inquirer from "inquirer";
-import ora from "ora";
+import ora, { Ora } from "ora";
 import { execSync, spawn } from "child_process";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
@@ -63,6 +63,28 @@ function saveSecrets(filePath: string, secrets: Record<string, string>, password
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(filePath, JSON.stringify(encryptedData, null, 2), "utf8");
+}
+
+async function waitForGateway(hostPort: string) {
+    const gatewayUrl = `http://localhost:${hostPort}/api/v0/tools`;
+    const waitSpinner = ora("Waiting for MCPJungle registry to become healthy...").start();
+    let attempts = 0;
+    while (true) {
+        try {
+            const out = execSync(`curl -s --max-time 5 "${gatewayUrl}"`, { stdio: "pipe" }).toString();
+            const json = JSON.parse(out);
+            if (Array.isArray(json) && json.some((t: any) => t.name?.includes("semantic_search"))) {
+                break;
+            }
+        } catch { }
+        attempts++;
+        if (attempts > 60) {
+            waitSpinner.fail("Timed out waiting for gateway. Check 'docker logs agenticflow-gateway' for errors.");
+            process.exit(1);
+        }
+        await new Promise(r => setTimeout(r, 2000));
+    }
+    waitSpinner.succeed("Gateway is healthy and tools are registered.");
 }
 
 async function getMasterPassword(): Promise<string> {
@@ -295,25 +317,7 @@ program
         console.log("\n✅ Docker containers started.");
 
         const hostPort = envVars.HOST_PORT || "18080";
-        const gatewayUrl = `http://localhost:${hostPort}/api/v0/tools`;
-        const waitSpinner = ora("Waiting for MCPJungle registry to become healthy...").start();
-        let attempts = 0;
-        while (true) {
-            try {
-                const out = execSync(`curl -s --max-time 5 "${gatewayUrl}"`, { stdio: "pipe" }).toString();
-                const json = JSON.parse(out);
-                if (Array.isArray(json) && json.some((t: any) => t.name?.includes("semantic_search"))) {
-                    break;
-                }
-            } catch { }
-            attempts++;
-            if (attempts > 60) {
-                waitSpinner.fail("Timed out waiting for gateway. Check 'docker logs agenticflow-gateway' for errors.");
-                process.exit(1);
-            }
-            await new Promise(r => setTimeout(r, 2000));
-        }
-        waitSpinner.succeed("Gateway is healthy and tools are registered.");
+        await waitForGateway(hostPort);
 
         // Step 5: Indexing
         const { doIndex } = await inquirer.prompt([
@@ -475,10 +479,11 @@ program
         if (doIndex) {
             console.log("\nRestarting memory MCP to apply new provider before indexing...");
             runShell("docker compose restart agenticflow-gateway", true);
-            const idxSpinner = ora("Indexing vault and tools via MCP... (this may take a moment)").start();
 
-            // Give the gateway a moment to reconnect
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            const hostPort = envVars.HOST_PORT || "18080";
+            await waitForGateway(hostPort);
+
+            const idxSpinner = ora("Indexing vault and tools via MCP... (this may take a moment)").start();
 
             try {
                 execSync("docker exec agenticflow-gateway mcpjungle invoke agenticflow__index_vault", { stdio: "ignore" });
