@@ -246,7 +246,22 @@ program
         // Step 2b: Bootstrap core config files from examples if not present
         const configDir = path.resolve(process.cwd(), "config");
         const memoryJson = path.join(configDir, "agenticflow.json");
+        const oldMemoryJson = path.join(configDir, "memory.json");
         const memoryExample = path.join(configDir, "agenticflow.example.json");
+
+        // Migration: If old memory.json exists but new agenticflow.json doesn't, rename it
+        if (fs.existsSync(oldMemoryJson) && !fs.existsSync(memoryJson)) {
+            try {
+                const config = JSON.parse(fs.readFileSync(oldMemoryJson, "utf8"));
+                config.name = "agenticflow";
+                fs.writeFileSync(memoryJson, JSON.stringify(config, null, 4));
+                fs.unlinkSync(oldMemoryJson);
+                ora().succeed(`Migrated ${path.basename(oldMemoryJson)} to ${path.basename(memoryJson)} and updated internal name.`);
+            } catch (err) {
+                console.error("⚠️ Failed to migrate memory.json", err);
+            }
+        }
+
         if (!fs.existsSync(memoryJson) && fs.existsSync(memoryExample)) {
             fs.copyFileSync(memoryExample, memoryJson);
             ora().succeed("Bootstrapped config/agenticflow.json from example.");
@@ -596,6 +611,63 @@ secretsCmd
             injectedCount++;
         }
         console.log(`Injection complete. Processed ${injectedCount} template(s).`);
+    });
+
+program
+    .command("uninstall")
+    .description("Completely remove Agenticflow containers, volumes, and configurations")
+    .action(async () => {
+        const { confirm } = await inquirer.prompt([
+            {
+                type: "confirm",
+                name: "confirm",
+                message: "⚠️  WARNING: This will permanently remove all Agenticflow containers, volumes (databases), and local configuration files. This cannot be undone. Are you sure?",
+                default: false
+            }
+        ]);
+
+        if (!confirm) {
+            console.log("Uninstall aborted.");
+            return;
+        }
+
+        const spinner = ora("Uninstalling Agenticflow...").start();
+
+        try {
+            // 1. Docker Cleanup
+            spinner.text = "Stopping and removing Docker containers, volumes, and images...";
+            try {
+                execSync("docker compose down -v --rmi local", { stdio: "ignore" });
+            } catch (err) {
+                // Ignore errors if docker-compose.yaml is missing or docker is not running
+            }
+
+            // 2. File Cleanup
+            spinner.text = "Removing local configuration files...";
+            const filesToRemove = [
+                ".env",
+                "config/agenticflow.json",
+                "config/atlassian.json",
+                "config/servers.yaml",
+                "config/config.yaml",
+                "config/secrets.enc"
+            ];
+
+            filesToRemove.forEach(file => {
+                const fullPath = path.resolve(process.cwd(), file);
+                if (fs.existsSync(fullPath)) {
+                    fs.unlinkSync(fullPath);
+                }
+            });
+
+            spinner.succeed("Agenticflow has been uninstalled.");
+            console.log("\nNext steps:");
+            console.log("1. To remove the global command, run: npm uninstall -g agenticflow (if you installed it via setup.sh)");
+            console.log("2. You can now safely delete this repository directory if desired.");
+        } catch (err) {
+            spinner.fail(`Uninstall failed: ${(err as Error).message}`);
+            process.exit(1);
+        }
     });
 
 program.parse(process.argv);
