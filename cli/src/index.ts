@@ -120,6 +120,12 @@ program
     .option("--all", "Setup everything (CLI and Gateway) (default)")
     .option("--gateway", "Setup only the Gateway")
     .option("--cli", "Setup only the CLI")
+    .option("--vault-path <path>", "Absolute path to your Obsidian Vault directory")
+    .option("--embedding <provider>", "Embedding provider (local, ollama, openai)")
+    .option("--master-password <password>", "Master password for the vault")
+    .option("--skip-atlassian", "Skip Atlassian configuration")
+    .option("--skip-remote", "Skip remote access configuration")
+    .option("--no-index", "Skip initial indexing")
     .action(async (options) => {
         console.log("\n🚀 Welcome to Agenticflow Setup!\n");
 
@@ -132,7 +138,7 @@ program
             try {
                 const isRoot = fs.existsSync(path.resolve(process.cwd(), "cli", "package.json"));
                 const cliDir = isRoot ? path.resolve(process.cwd(), "cli") : process.cwd();
-                if (fs.existsSync(path.resolve(cliDir, "package.json"))) {
+                if (fs.existsSync(path.join(cliDir, "package.json"))) {
                     execSync("npm install && npm run build && npm link", { cwd: cliDir, stdio: "ignore" });
                     ora().succeed("CLI installed and linked successfully.");
                 } else {
@@ -158,7 +164,7 @@ program
 
         // Step 1.5: Check for existing configuration
         if (fs.existsSync(ENV_FILE) || fs.existsSync(DEFAULT_SECRETS_FILE)) {
-            const { overwrite } = await inquirer.prompt([
+            const { overwrite } = options.vaultPath ? { overwrite: true } : await inquirer.prompt([
                 {
                     type: "list",
                     name: "overwrite",
@@ -184,7 +190,10 @@ program
             envVars = { ...envVars, ...parsed };
         }
 
-        const envAnswers = await inquirer.prompt([
+        const envAnswers = options.vaultPath ? {
+            VAULT_PATH: options.vaultPath,
+            EMBEDDING_PROVIDER: options.embedding || "local"
+        } : await inquirer.prompt([
             {
                 type: "input",
                 name: "VAULT_PATH",
@@ -254,12 +263,17 @@ program
 
         // Master Password Generation/Prompt
         if (!envVars.AGENTICFLOW_MASTER_PASSWORD) {
-            console.log("\nAgenticflow uses an encrypted vault for integrations (like Jira).");
-            const { master } = await inquirer.prompt([
-                { type: "password", name: "master", message: "Create a Master Password for the vault:", mask: "*" }
-            ]);
-            envVars.AGENTICFLOW_MASTER_PASSWORD = master;
-            process.env.AGENTICFLOW_MASTER_PASSWORD = master; // For this session
+            if (options.masterPassword) {
+                envVars.AGENTICFLOW_MASTER_PASSWORD = options.masterPassword;
+                process.env.AGENTICFLOW_MASTER_PASSWORD = options.masterPassword;
+            } else {
+                console.log("\nAgenticflow uses an encrypted vault for integrations (like Jira).");
+                const { master } = await inquirer.prompt([
+                    { type: "password", name: "master", message: "Create a Master Password for the vault:", mask: "*" }
+                ]);
+                envVars.AGENTICFLOW_MASTER_PASSWORD = master;
+                process.env.AGENTICFLOW_MASTER_PASSWORD = master; // For this session
+            }
         } else {
             process.env.AGENTICFLOW_MASTER_PASSWORD = envVars.AGENTICFLOW_MASTER_PASSWORD;
         }
@@ -315,7 +329,7 @@ program
         }
 
         // Step 3: Secrets Integration
-        const { setupAtlassian } = await inquirer.prompt([
+        const { setupAtlassian } = options.skipAtlassian ? { setupAtlassian: false } : await inquirer.prompt([
             { type: "confirm", name: "setupAtlassian", message: "Would you like to configure Atlassian (Jira/Confluence) integration now?", default: false }
         ]);
 
@@ -336,7 +350,7 @@ program
 
         // Step 3.5: Remote Access
         console.log("\n--- Remote Access ---");
-        const { setupRemote } = await inquirer.prompt([
+        const { setupRemote } = options.skipRemote ? { setupRemote: false } : await inquirer.prompt([
             { type: "confirm", name: "setupRemote", message: "Enable secure Remote Access (requires authentication)?", default: false }
         ]);
 
@@ -411,7 +425,7 @@ program
         await waitForGateway(hostPort);
 
         // Step 5: Indexing
-        const { doIndex } = await inquirer.prompt([
+        const { doIndex } = (options.index === false) ? { doIndex: false } : await inquirer.prompt([
             { type: "confirm", name: "doIndex", message: "Would you like to semantic index your Obsidian vault and tools now? (Takes a few seconds)", default: true }
         ]);
 
