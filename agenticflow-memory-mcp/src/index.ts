@@ -152,7 +152,8 @@ const noOpEmbeddingFunction = {
 async function getCollection(name?: string): Promise<Collection> {
   // Use a per-provider collection name so different embedding dimensions never conflict.
   // Users can switch providers freely and even compare results between them.
-  const collectionName = name ?? `obsidian_vault_${EMBEDDING_PROVIDER}`;
+  const baseName = name ?? "obsidian_vault";
+  const collectionName = `${baseName}_${EMBEDDING_PROVIDER}`;
   const client = new ChromaClient({ host: CHROMA_HOST, port: parseInt(CHROMA_PORT), ssl: false });
   return client.getOrCreateCollection({
     name: collectionName,

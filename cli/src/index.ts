@@ -317,14 +317,15 @@ program
 
         // Step 5: Indexing
         const { doIndex } = await inquirer.prompt([
-            { type: "confirm", name: "doIndex", message: "Would you like to semantic index your Obsidian vault now? (Takes a few seconds)", default: true }
+            { type: "confirm", name: "doIndex", message: "Would you like to semantic index your Obsidian vault and tools now? (Takes a few seconds)", default: true }
         ]);
 
         if (doIndex) {
-            const idxSpinner = ora("Indexing vault...").start();
+            const idxSpinner = ora("Indexing vault and tools...").start();
             try {
                 execSync("docker exec agenticflow-gateway mcpjungle invoke agenticflow__index_vault", { stdio: "ignore" });
-                idxSpinner.succeed("Vault successfully indexed!");
+                execSync("docker exec agenticflow-gateway mcpjungle invoke memory__refresh_tool_index", { stdio: "ignore" });
+                idxSpinner.succeed("Vault and tools successfully indexed!");
             } catch {
                 idxSpinner.fail("Indexing failed. You can run it manually later via the MCP tool.");
             }
@@ -465,25 +466,26 @@ program
         ora().succeed(`Embedding provider switched to: ${provider}`);
 
         console.log("\n⚠️ When changing providers, your vector dimensions and models change.");
-        console.log("To prevent stale or mixed search results, it is highly recommended to re-index your vault into the new provider's collection.\n");
+        console.log("To prevent stale or mixed search results, it is highly recommended to re-index your vault AND refresh your tool discovery index into the new provider's collections.\n");
 
         const { doIndex } = await inquirer.prompt([
-            { type: "confirm", name: "doIndex", message: "Would you like to re-index your Obsidian vault now?", default: true }
+            { type: "confirm", name: "doIndex", message: "Would you like to re-index your Obsidian vault and MCP tools now?", default: true }
         ]);
 
         if (doIndex) {
             console.log("\nRestarting memory MCP to apply new provider before indexing...");
             runShell("docker compose restart agenticflow-gateway", true);
-            const idxSpinner = ora("Indexing vault via MCP... (this may take a moment)").start();
+            const idxSpinner = ora("Indexing vault and tools via MCP... (this may take a moment)").start();
 
             // Give the gateway a moment to reconnect
             await new Promise(resolve => setTimeout(resolve, 3000));
 
             try {
                 execSync("docker exec agenticflow-gateway mcpjungle invoke agenticflow__index_vault", { stdio: "ignore" });
-                idxSpinner.succeed("Vault successfully indexed with the new provider!");
+                execSync("docker exec agenticflow-gateway mcpjungle invoke memory__refresh_tool_index", { stdio: "ignore" });
+                idxSpinner.succeed("Vault and tools successfully indexed with the new provider!");
             } catch (err) {
-                idxSpinner.fail("Indexing failed. The gateway might still be starting, or the memory container failed to load. Run it manually via the MCP tool or check the logs.");
+                idxSpinner.fail("Indexing failed. The gateway might still be starting, or the memory container failed to load. Run it manually via the MCP tools or check the logs.");
             }
         }
 
