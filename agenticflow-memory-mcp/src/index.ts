@@ -318,38 +318,7 @@ server.tool(
   }
 );
 
-// ─── Tool: Append log ──────────────────────────────────────────────────────────
-server.tool(
-  "append_log",
-  "Append a note or thought to today's daily log in the Obsidian vault.",
-  {
-    content: z.string().describe("Content to append"),
-    section: z.string().optional().describe("Optional section heading to append under (e.g. '## Notes')"),
-  },
-  async ({ content, section }) => {
-    const today = new Date().toISOString().slice(0, 10);
-    const logDir = path.join(VAULT_PATH, "40_LOGS");
-    const logFile = path.join(logDir, `${today}.md`);
 
-    // Ensure log directory exists
-    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
-
-    const timestamp = new Date().toLocaleTimeString("en-NL", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit" });
-
-    if (!fs.existsSync(logFile)) {
-      // Create with frontmatter
-      fs.writeFileSync(logFile, `---\ndate: ${today}\ntags: [log]\n---\n\n# Log ${today}\n\n`);
-    }
-
-    const entry = section
-      ? `\n${section}\n- ${timestamp}: ${content}\n`
-      : `\n- ${timestamp}: ${content}\n`;
-
-    fs.appendFileSync(logFile, entry);
-
-    return { content: [{ type: "text", text: `Appended to ${today}.md at ${timestamp}` }] };
-  }
-);
 
 // ─── Tool: Discover tools ─────────────────────────────────────────────────────
 server.tool(
