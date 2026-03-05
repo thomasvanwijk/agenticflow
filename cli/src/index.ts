@@ -328,7 +328,7 @@ program
             const idxSpinner = ora("Indexing vault and tools...").start();
             try {
                 execSync("docker exec agenticflow-gateway mcpjungle invoke agenticflow__index_vault", { stdio: "ignore" });
-                execSync("docker exec agenticflow-gateway mcpjungle invoke memory__refresh_tool_index", { stdio: "ignore" });
+                execSync("docker exec agenticflow-gateway mcpjungle invoke agenticflow__refresh_tool_index", { stdio: "ignore" });
                 idxSpinner.succeed("Vault and tools successfully indexed!");
             } catch {
                 idxSpinner.fail("Indexing failed. You can run it manually later via the MCP tool.");
@@ -487,7 +487,7 @@ program
 
             try {
                 execSync("docker exec agenticflow-gateway mcpjungle invoke agenticflow__index_vault", { stdio: "ignore" });
-                execSync("docker exec agenticflow-gateway mcpjungle invoke memory__refresh_tool_index", { stdio: "ignore" });
+                execSync("docker exec agenticflow-gateway mcpjungle invoke agenticflow__refresh_tool_index", { stdio: "ignore" });
                 idxSpinner.succeed("Vault and tools successfully indexed with the new provider!");
             } catch (err) {
                 idxSpinner.fail("Indexing failed. The gateway might still be starting, or the memory container failed to load. Run it manually via the MCP tools or check the logs.");

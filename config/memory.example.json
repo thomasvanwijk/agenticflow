@@ -1,5 +1,5 @@
 {
-    "name": "memory",
+    "name": "agenticflow",
     "transport": "stdio",
     "description": "Agenticflow — semantic memory, tool discovery and execution for your Obsidian vault and integrations",
     "command": "node",

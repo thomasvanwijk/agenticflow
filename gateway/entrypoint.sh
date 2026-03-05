@@ -67,7 +67,7 @@ echo "[agenticflow] Hiding atlassian tools from MCP client tool list..."
 echo "[agenticflow] Seeding tool discovery index (background)..."
 (
   sleep 5
-  /mcpjungle invoke memory__refresh_tool_index --registry "$REGISTRY" 2>&1 | \
+  /mcpjungle invoke agenticflow__refresh_tool_index --registry "$REGISTRY" 2>&1 | \
     sed 's/^/[agenticflow][tool-index] /'
 ) &
 
