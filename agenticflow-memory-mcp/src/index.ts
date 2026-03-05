@@ -21,7 +21,7 @@ const VAULT_PATH = process.env.VAULT_PATH || "/vault";
 const CHROMA_HOST = process.env.CHROMA_HOST || "localhost";
 const CHROMA_PORT = process.env.CHROMA_PORT || "8000";
 const EMBEDDING_PROVIDER = process.env.EMBEDDING_PROVIDER || "ollama";
-const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "nomic-embed-text";
+const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "Xenova/jina-embeddings-v2-small-en";
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://host.docker.internal:11434";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 
@@ -200,6 +200,60 @@ server.tool(
   }
 );
 
+// ─── Tool: Exact keyword search ────────────────────────────────────────────────
+server.tool(
+  "search_vault_keywords",
+  "Search the Obsidian vault using exact keyword matching (lexical search). Very fast. Useful for finding specific proper nouns, names, or code snippets where semantic search might fail.",
+  {
+    query: z.string().describe("Exact text or keyword to search for"),
+    limit: z.number().optional().default(10).describe("Maximum number of files to return")
+  },
+  async ({ query, limit }) => {
+    try {
+      const files = walkVault(VAULT_PATH);
+      if (!files.length) {
+        return { content: [{ type: "text", text: `No markdown files found in vault at ${VAULT_PATH}` }] };
+      }
+
+      const results: string[] = [];
+      const searchStr = query.toLowerCase();
+
+      // Read files quickly and find matches
+      // Note: in a production setting with thousands of huge files this might be slow,
+      // but for typical Markdown vaults, Node's fs reading is near-instant.
+      for (const filePath of files) {
+        if (results.length >= limit) break;
+
+        const relPath = path.relative(VAULT_PATH, filePath).replace(/\\/g, "/");
+        const { content, data } = readNote(filePath);
+
+        if (content.toLowerCase().includes(searchStr) || (data.title && String(data.title).toLowerCase().includes(searchStr))) {
+          // Extract a snippet around the first match
+          const idx = content.toLowerCase().indexOf(searchStr);
+          let snippet = "";
+          if (idx !== -1) {
+            const start = Math.max(0, idx - 100);
+            const end = Math.min(content.length, idx + searchStr.length + 100);
+            snippet = content.slice(start, end).replace(/\n/g, " ").trim();
+            if (start > 0) snippet = "..." + snippet;
+            if (end < content.length) snippet = snippet + "...";
+          }
+
+          results.push(`### ${data.title || path.basename(filePath, ".md")}\nFile: \`${relPath}\`\nSnippet: ${snippet}`);
+        }
+      }
+
+      if (results.length === 0) {
+        return { content: [{ type: "text", text: `No exact matches found for "${query}".` }] };
+      }
+
+      return { content: [{ type: "text", text: `## Exact Matches for "${query}":\n\n${results.join("\n\n---\n\n")}` }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Search failed: ${(err as Error).message}` }] };
+    }
+  }
+);
+
 // ─── Tool: Index vault ─────────────────────────────────────────────────────────
 server.tool(
   "index_vault",
@@ -320,7 +374,140 @@ server.tool(
 
 
 
-// ─── Tool: Discover tools ─────────────────────────────────────────────────────
+// ─── Tool: Create note ─────────────────────────────────────────────────────────
+server.tool(
+  "create_note",
+  "Create a new Obsidian note with optional frontmatter and content. Fails if the note already exists.",
+  {
+    path: z.string().describe("File path relative to vault root, e.g. 'Projects/new-project.md'"),
+    frontmatter: z.record(z.unknown()).optional().describe("Key-value pairs for the note's YAML frontmatter (optional)"),
+    content: z.string().optional().describe("The initial markdown content of the note (optional)")
+  },
+  async ({ path: notePath, frontmatter, content }) => {
+    try {
+      const full = path.join(VAULT_PATH, notePath.replace(/^\//, ""));
+      if (!full.startsWith(VAULT_PATH)) {
+        return { content: [{ type: "text", text: "Access denied: path traversal not allowed." }] };
+      }
+      if (fs.existsSync(full)) {
+        return { content: [{ type: "text", text: `Error: Note already exists at ${notePath}. Use update_note instead.` }] };
+      }
+
+      // Ensure directory exists
+      const dir = path.dirname(full);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+      let fileContent = "";
+      if (frontmatter && Object.keys(frontmatter).length > 0) {
+        fileContent += "---\n";
+        // Simple YAML serialization
+        for (const [key, value] of Object.entries(frontmatter)) {
+          if (Array.isArray(value)) {
+            fileContent += `${key}:\n`;
+            value.forEach(v => fileContent += `  - ${v}\n`);
+          } else {
+            fileContent += `${key}: ${value}\n`;
+          }
+        }
+        fileContent += "---\n\n";
+      }
+
+      if (content) {
+        fileContent += content;
+      }
+
+      fs.writeFileSync(full, fileContent);
+
+      return { content: [{ type: "text", text: `Successfully created note at: ${notePath}` }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Failed to create note: ${(err as Error).message}` }] };
+    }
+  }
+);
+
+// ─── Tool: Update note ─────────────────────────────────────────────────────────
+server.tool(
+  "update_note",
+  "Completely replace the contents of an existing Obsidian note. This overwrites the entire file.",
+  {
+    path: z.string().describe("File path relative to vault root, e.g. 'Projects/project.md'"),
+    content: z.string().describe("The new markdown content (including frontmatter if desired) to replace the file with")
+  },
+  async ({ path: notePath, content }) => {
+    try {
+      const full = path.join(VAULT_PATH, notePath.replace(/^\//, ""));
+      if (!full.startsWith(VAULT_PATH)) {
+        return { content: [{ type: "text", text: "Access denied: path traversal not allowed." }] };
+      }
+      if (!fs.existsSync(full)) {
+        return { content: [{ type: "text", text: `Error: Note not found at ${notePath}. Use create_note instead.` }] };
+      }
+
+      fs.writeFileSync(full, content);
+
+      return { content: [{ type: "text", text: `Successfully updated note at: ${notePath}` }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Failed to update note: ${(err as Error).message}` }] };
+    }
+  }
+);
+
+// ─── Tool: Append to note ──────────────────────────────────────────────────────
+server.tool(
+  "append_to_note",
+  "Append content to the end of an existing Obsidian note, optionally under a specific heading.",
+  {
+    path: z.string().describe("File path relative to vault root, e.g. 'Projects/project.md'"),
+    content: z.string().describe("Content to append"),
+    heading: z.string().optional().describe("Optional exact heading (e.g., '## Meeting Notes') to append under. If not found, it appends to the end.")
+  },
+  async ({ path: notePath, content, heading }) => {
+    try {
+      const full = path.join(VAULT_PATH, notePath.replace(/^\//, ""));
+      if (!full.startsWith(VAULT_PATH)) {
+        return { content: [{ type: "text", text: "Access denied: path traversal not allowed." }] };
+      }
+      if (!fs.existsSync(full)) {
+        return { content: [{ type: "text", text: `Error: Note not found at ${notePath}.` }] };
+      }
+
+      let fileContent = fs.readFileSync(full, "utf-8");
+
+      if (heading) {
+        // Find the heading line
+        const lines = fileContent.split("\n");
+        const headingIndex = lines.findIndex(line => line.trim() === heading.trim());
+
+        if (headingIndex !== -1) {
+          // Find the next heading of same or higher level to insert before
+          const currentLevelMatch = heading.match(/^(#+)\s/);
+          const currentLevel = currentLevelMatch ? currentLevelMatch[1].length : 0;
+
+          let insertIndex = lines.length;
+          for (let i = headingIndex + 1; i < lines.length; i++) {
+            const match = lines[i].match(/^(#+)\s/);
+            if (match && match[1].length <= currentLevel) {
+              insertIndex = i;
+              break;
+            }
+          }
+
+          lines.splice(insertIndex, 0, "", content);
+          fileContent = lines.join("\n");
+          fs.writeFileSync(full, fileContent);
+          return { content: [{ type: "text", text: `Successfully appended to note at: ${notePath} under heading '${heading}'` }] };
+        }
+      }
+
+      // Fallback: append to end
+      fs.appendFileSync(full, "\n" + content + "\n");
+      return { content: [{ type: "text", text: `Successfully appended to the end of note at: ${notePath}` }] };
+
+    } catch (err) {
+      return { content: [{ type: "text", text: `Failed to append to note: ${(err as Error).message}` }] };
+    }
+  }
+);
 server.tool(
   "discover_tools",
   "Semantically search for available MCP tools across all registered servers (Jira, Confluence, etc.). Use this when you are not sure which tool to use for a task.",
