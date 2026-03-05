@@ -9,7 +9,7 @@ gateway:
 
 # ─── Obsidian Memory ──────────────────────────────────────────────────────────
 memory:
-  vault_path: "/Users/YOURNAME/Documents/Obsidian/YourVault"  # REQUIRED
+  vault_path: "/absolute/path/to/vault"  # REQUIRED
   # vault_path works with ANY vault structure — no reorganization needed.
 
   # Embedding provider: "ollama" (free, local) or "openai"
