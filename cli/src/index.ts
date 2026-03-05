@@ -373,19 +373,31 @@ program
 
         if (setupRemote) {
             const b64Creds = Buffer.from(`agenticflow:${remotePwd}`).toString("base64");
+            console.log(`\n✅ REMOTE ACCESS ENABLED`);
+            console.log(`--------------------------------------------------------------------------------`);
             console.log(`IMPORTANT: Your Remote Access Password is: ${remotePwd}`);
             console.log(`Save this password! It will not be shown again.\n`);
-            console.log(`To connect from a remote Claude Desktop over your Tailscale/tunnel, add this to claude_desktop_config.json:\n`);
+
+            console.log(`1. For Claude Desktop (Local or Remote connecting via mcp-remote proxy):`);
+            console.log(`Add this to your local claude_desktop_config.json:`);
             console.log(JSON.stringify({
                 "mcpServers": {
                     "agenticflow-remote": {
                         "command": "npx",
-                        "args": ["-y", "mcp-remote", "http://YOUR_HOST:18080/mcp", "--allow-http", "--header", `Authorization: Basic ${b64Creds}`]
+                        "args": ["-y", "mcp-remote", "https://YOUR_HOST_OR_IP/mcp", "--header", `Authorization: Basic ${b64Creds}`]
                     }
                 }
             }, null, 2));
+
+            console.log(`\n2. For clients that support SSE directly (e.g. Perplexity, custom apps):`);
+            console.log(`URL: https://YOUR_HOST_OR_IP/mcp`);
+            console.log(`Auth Header: Authorization: Basic ${b64Creds}`);
+            console.log(`--------------------------------------------------------------------------------\n`);
+            console.log(`NOTE: If you are NOT using HTTPS (e.g. raw Tailscale IP), add "--allow-http" to the npx args.`);
         } else {
-            console.log("To connect from your local Claude Desktop, add this to claude_desktop_config.json:\n");
+            console.log(`\n✅ LOCAL ACCESS ENABLED`);
+            console.log(`--------------------------------------------------------------------------------`);
+            console.log("Add this to your local claude_desktop_config.json:\n");
             console.log(JSON.stringify({
                 "mcpServers": {
                     "agenticflow": {
@@ -394,6 +406,7 @@ program
                     }
                 }
             }, null, 2));
+            console.log(`--------------------------------------------------------------------------------\n`);
         }
         console.log("\n");
     });
