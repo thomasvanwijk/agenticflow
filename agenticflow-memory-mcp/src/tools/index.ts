@@ -9,7 +9,7 @@ import { getCollection } from "../services/chroma.js";
 import { generateEmbedding } from "../providers/index.js";
 import { walkVault, readNote } from "../services/vault.js";
 import { indexVault } from "../services/indexer.js";
-import { logger } from "../utils/logger.js";
+import { logger, toolError } from "../utils/logger.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -40,7 +40,7 @@ export function registerTools(server: McpServer) {
 
                 return { content: [{ type: "text", text: formatted.join("\n\n---\n\n") }] };
             } catch (err) {
-                return { content: [{ type: "text", text: `Search failed: ${(err as Error).message}\n\nTip: ChromaDB may not be running, or the vault hasn't been indexed yet.` }] };
+                return toolError("semantic_search", err, "ChromaDB may not be running, or the vault hasn't been indexed yet.");
             }
         }
     );
@@ -89,7 +89,7 @@ export function registerTools(server: McpServer) {
 
                 return { content: [{ type: "text", text: `## Exact Matches for "${query}":\n\n${results.join("\n\n---\n\n")}` }] };
             } catch (err) {
-                return { content: [{ type: "text", text: `Search failed: ${(err as Error).message}` }] };
+                return toolError("search_vault_keywords", err);
             }
         }
     );
@@ -103,8 +103,7 @@ export function registerTools(server: McpServer) {
                 const { indexed, skipped, total } = await indexVault(force);
                 return { content: [{ type: "text", text: `Indexing complete.\n- Indexed: ${indexed} notes\n- Skipped (failed/unchanged): ${skipped} notes\n- Total vault files: ${total}` }] };
             } catch (err) {
-                logger.error("Indexing failed", { error: (err as Error).message, stack: (err as Error).stack });
-                return { content: [{ type: "text", text: `Indexing failed: ${(err as Error).message}` }] };
+                return toolError("index_vault", err);
             }
         }
     );
@@ -210,7 +209,7 @@ export function registerTools(server: McpServer) {
 
                 return { content: [{ type: "text", text: `Successfully created note at: ${notePath}` }] };
             } catch (err) {
-                return { content: [{ type: "text", text: `Failed to create note: ${(err as Error).message}` }] };
+                return toolError("create_note", err);
             }
         }
     );
@@ -236,7 +235,7 @@ export function registerTools(server: McpServer) {
 
                 return { content: [{ type: "text", text: `Successfully updated note at: ${notePath}` }] };
             } catch (err) {
-                return { content: [{ type: "text", text: `Failed to update note: ${(err as Error).message}` }] };
+                return toolError("update_note", err);
             }
         }
     );
@@ -289,7 +288,7 @@ export function registerTools(server: McpServer) {
                 return { content: [{ type: "text", text: `Successfully appended to the end of note at: ${notePath}` }] };
 
             } catch (err) {
-                return { content: [{ type: "text", text: `Failed to append to note: ${(err as Error).message}` }] };
+                return toolError("append_to_note", err);
             }
         }
     );
@@ -318,7 +317,7 @@ export function registerTools(server: McpServer) {
 
                 return { content: [{ type: "text", text: `## Relevant Tools Found:\n\n${formatted.join("\n\n---\n\n")}` }] };
             } catch (err) {
-                return { content: [{ type: "text", text: `Tool discovery failed: ${(err as Error).message}` }] };
+                return toolError("discover_tools", err);
             }
         }
     );
@@ -357,7 +356,7 @@ export function registerTools(server: McpServer) {
 
                 return { content: [{ type: "text", text: `Tool index refreshed. Indexed ${indexed} tools.` }] };
             } catch (err) {
-                return { content: [{ type: "text", text: `Refresh failed: ${(err as Error).message}` }] };
+                return toolError("refresh_tool_index", err);
             }
         }
     );
@@ -385,9 +384,7 @@ export function registerTools(server: McpServer) {
 
                 return { content: [{ type: "text", text: stdout || "(tool returned no output)" }] };
             } catch (err) {
-                const error = err as { stdout?: string; stderr?: string; message?: string };
-                const detail = error.stdout || error.stderr || error.message || String(err);
-                return { content: [{ type: "text", text: `call_tool failed: ${detail}\n\nTip: Verify the tool name is correct using discover_tools.` }] };
+                return toolError("call_tool", err, "Verify the tool name is correct using discover_tools.");
             }
         }
     );
