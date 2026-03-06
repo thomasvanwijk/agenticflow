@@ -33,15 +33,24 @@ export async function listSecretsAction(options: any) {
 export async function injectSecretsAction(options: any) {
     const pwd = await getMasterPassword();
     const secrets = loadSecrets(options.file || DEFAULT_SECRETS_FILE, pwd);
-    const templatesDir = options.templates || CONFIG_DIR;
-    const outputDir = options.output || CONFIG_DIR;
 
-    const files = fs.readdirSync(templatesDir);
-    for (const file of files) {
-        if (!file.includes(".example.")) continue;
-        const content = fs.readFileSync(path.join(templatesDir, file), "utf8");
-        const injected = content.replace(/\$\{([A-Z0-9_]+)\}|\{\{([A-Z0-9_]+)\}\}/gi, (m, g1, g2) => secrets[g1 || g2] || process.env[g1 || g2] || m);
-        fs.writeFileSync(path.join(outputDir, file.replace(".example.", ".")), injected);
-        console.log(`Injected ${file}`);
+    // Scan both base config and servers.d for templates
+    const searchDirs = [CONFIG_DIR, path.join(CONFIG_DIR, "servers.d")];
+
+    for (const dir of searchDirs) {
+        if (!fs.existsSync(dir)) continue;
+
+        const files = fs.readdirSync(dir);
+        for (const file of files) {
+            if (!file.includes(".example.")) continue;
+
+            const filePath = path.join(dir, file);
+            const content = fs.readFileSync(filePath, "utf8");
+            const injected = content.replace(/\$\{([A_Z0-9_]+)\}|\{\{([A_Z0-9_]+)\}\}/gi, (m, g1, g2) => secrets[g1 || g2] || process.env[g1 || g2] || m);
+
+            const outPath = path.join(dir, file.replace(".example.", "."));
+            fs.writeFileSync(outPath, injected);
+            console.log(`Injected ${outPath}`);
+        }
     }
 }

@@ -29,4 +29,4 @@ startAutoIndexer();
 const transport = new StdioServerTransport();
 await server.connect(transport);
 
-logger.info("Memory MCP server started successfully");
+logger.info("Memory MCP server started successfully", "server_startup");

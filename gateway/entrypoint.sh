@@ -6,6 +6,9 @@ set -e
 
 REGISTRY="http://127.0.0.1:8080"
 CONFIG_DIR="/config"
+SERVERS_DIR="${CONFIG_DIR}/servers.d"
+
+mkdir -p "$SERVERS_DIR"
 
 # ── 1. Inject secrets into config files (if secrets.enc exists) ───────────────
 if [ -f "${CONFIG_DIR}/secrets.enc" ]; then
@@ -38,44 +41,47 @@ for i in $(seq 1 30); do
 done
 
 # ── 3. Register servers from config files ─────────────────────────────────────
-echo "[agenticflow] Registering MCP servers..."
+echo "[agenticflow] Registering MCP servers from ${SERVERS_DIR}..."
 
-for conf in "${CONFIG_DIR}"/*.json; do
-  name=$(basename "$conf" .json)
-  # Skip example files
-  case "$name" in *example*) continue;; esac
+if [ -d "$SERVERS_DIR" ]; then
+  for conf in "${SERVERS_DIR}"/*.json; do
+    # Handle case where no files match the glob
+    [ -e "$conf" ] || continue
+    
+    name=$(basename "$conf" .json)
+    # Skip example files
+    case "$name" in *example*) continue;; esac
 
-  # Check if already registered to keep startup idempotent
-  if mcpjungle list servers --registry "$REGISTRY" 2>/dev/null | grep -q "^${name}$"; then
-    echo "[agenticflow]   - ${name}: already registered, skipping."
-  else
-    echo "[agenticflow]   - ${name}: registering..."
-    mcpjungle register --conf "$conf" --registry "$REGISTRY" && \
-      echo "[agenticflow]   - ${name}: registered." || \
-      echo "[agenticflow]   WARNING: could not register ${name}"
-  fi
-done
+    # Check if already registered to keep startup idempotent
+    if mcpjungle list servers --registry "$REGISTRY" 2>/dev/null | grep -q "^${name}$"; then
+      echo "[agenticflow]   - ${name}: already registered, skipping."
+    else
+      echo "[agenticflow]   - ${name}: registering..."
+      mcpjungle register --conf "$conf" --registry "$REGISTRY" && \
+        echo "[agenticflow]   - ${name}: registered." || \
+        echo "[agenticflow]   WARNING: could not register ${name}"
+    fi
+  done
+fi
 
-# ── 4. Clean up old servers (those whose config files are gone) ───────────────
+# ── 4. Clean up old servers (those whose config files are gone from servers.d) ───────────────
 echo "[agenticflow] Cleaning up old servers..."
 for server in $(mcpjungle list servers --registry "$REGISTRY" 2>/dev/null); do
   # Skip built-in or required servers if necessary.
-  # For now, we assume if <server>.json is missing from /config, it should go.
-  if [ ! -f "${CONFIG_DIR}/${server}.json" ]; then
-    echo "[agenticflow]   - ${server}: config missing, unregistering..."
+  # We assume if <server>.json is missing from servers.d/, it should go.
+  if [ ! -f "${SERVERS_DIR}/${server}.json" ]; then
+    echo "[agenticflow]   - ${server}: config missing in ${SERVERS_DIR}, unregistering..."
     mcpjungle unregister "$server" --registry "$REGISTRY" 2>/dev/null || \
       echo "[agenticflow]   WARNING: could not unregister ${server}"
   fi
 done
 
 # ── 5. Disable servers that should be hidden from MCP clients ─────────────────
-# Atlassian tools are available for proxy invocation but hidden to save context.
 echo "[agenticflow] Hiding atlassian tools from MCP client tool list..."
 mcpjungle disable server atlassian --registry "$REGISTRY" 2>/dev/null || \
   echo "[agenticflow]   WARNING: could not disable atlassian (may already be disabled)"
 
 # ── 6. Seed the tool discovery index ──────────────────────────────────────────
-# Runs in background — memory may take a moment to spawn
 echo "[agenticflow] Seeding tool discovery index (background)..."
 (
   sleep 5

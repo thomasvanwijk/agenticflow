@@ -3,7 +3,7 @@ import path from "path";
 import inquirer from "inquirer";
 import ora from "ora";
 import bcrypt from "bcryptjs";
-import { ENV_FILE, DEFAULT_SECRETS_FILE } from "../config.js";
+import { ENV_FILE, DEFAULT_SECRETS_FILE, CONFIG_DIR } from "../config.js";
 import { runShell, runDockerCompose, handleError } from "../utils/shell.js";
 import { generatePassword } from "../utils/crypto.js";
 import { loadSecrets, saveSecrets } from "../services/secrets.js";
@@ -111,11 +111,30 @@ export async function setupAction(options: any) {
     envService.save(envVars);
 
     // Config bootstrap
-    const configDir = path.dirname(DEFAULT_SECRETS_FILE);
-    const memoryJson = path.join(configDir, "agenticflow.json");
-    const memoryExample = path.join(configDir, "agenticflow.example.json");
-    if (!fs.existsSync(memoryJson) && fs.existsSync(memoryExample)) {
+    const serversDir = path.join(CONFIG_DIR, "servers.d");
+    if (!fs.existsSync(serversDir)) fs.mkdirSync(serversDir, { recursive: true });
+
+    // Handle agenticflow.json move/creation
+    const memoryJson = path.join(serversDir, "agenticflow.json");
+    const memoryExample = path.join(CONFIG_DIR, "agenticflow.example.json");
+
+    // Also check if it exists in the OLD location and move it if so
+    const oldMemoryJson = path.join(CONFIG_DIR, "agenticflow.json");
+    if (fs.existsSync(oldMemoryJson) && !fs.existsSync(memoryJson)) {
+        fs.renameSync(oldMemoryJson, memoryJson);
+        ora().info("Moved agenticflow.json to servers.d/");
+    } else if (!fs.existsSync(memoryJson) && fs.existsSync(memoryExample)) {
         fs.copyFileSync(memoryExample, memoryJson);
+    }
+
+    // Move example files to servers.d if they are there
+    const exampleFiles = ["agenticflow.example.json", "atlassian.example.json"];
+    for (const f of exampleFiles) {
+        const src = path.join(CONFIG_DIR, f);
+        const dst = path.join(serversDir, f);
+        if (fs.existsSync(src) && !fs.existsSync(dst)) {
+            fs.renameSync(src, dst);
+        }
     }
 
     // Atlassian

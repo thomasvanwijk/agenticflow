@@ -8,7 +8,7 @@ const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "af-env-test-"));
 const tempEnv = path.join(tempDir, ".env");
 
 vi.mock("../config.js", async (importOriginal) => {
-    const actual = await importOriginal();
+    const actual = await (importOriginal as any)();
     return {
         ...actual,
         ENV_FILE: tempEnv,

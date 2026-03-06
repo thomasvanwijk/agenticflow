@@ -11,7 +11,7 @@ export function encrypt(text: string, password: string): { iv: string; content: 
     const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
     let encrypted = cipher.update(text, "utf8", "hex");
     encrypted += cipher.final("hex");
-    return { iv: iv.toString("hex"), content: encrypted, tag: cipher.getAuthTag().toString("hex") };
+    return { iv: iv.toString("hex"), content: encrypted, tag: (cipher as any).getAuthTag().toString("hex") };
 }
 
 export function decrypt(hash: { iv: string; content: string; tag: string }, password: string): string {
@@ -19,7 +19,7 @@ export function decrypt(hash: { iv: string; content: string; tag: string }, pass
     const tag = Buffer.from(hash.tag, "hex");
     const key = getKey(password);
     const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-    decipher.setAuthTag(tag);
+    (decipher as any).setAuthTag(tag);
     let decrypted = decipher.update(hash.content, "hex", "utf8");
     decrypted += decipher.final("utf8");
     return decrypted;

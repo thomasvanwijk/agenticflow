@@ -13,32 +13,18 @@ const configSchema = z.object({
     DEFAULT_SECRETS_FILE: z.string().default(path.resolve(process.cwd(), "config/secrets.enc")),
     CONFIG_DIR: z.string().default(path.resolve(process.cwd(), "config")),
     HOST_PORT: z.string().default("18080"),
-    AGENTICFLOW_DEBUG: z.string().optional().transform((v) => v === "1" || v === "true").default("false"),
+    AGENTICFLOW_DEBUG: z.preprocess(
+        (v) => v === "1" || v === "true",
+        z.boolean().default(false)
+    ),
 });
 
-// We safeParse because some variables might be missing (e.g. before setup)
 const parsed = configSchema.safeParse(process.env);
 
 if (!parsed.success) {
     process.stderr.write(`[agenticflow-cli] Configuration Error: ${parsed.error.message}\n`);
     process.exit(1);
 }
-
-// Convert string "true"/"false" from transform back to boolean if needed, 
-// or just export the data as processed by Zod.
-// The lint error was likely due to .default("false") on a boolean-transformed field.
-// Let's refine the schema:
-const refinedSchema = z.object({
-    ALGORITHM: z.string().default("aes-256-gcm"),
-    SALT: z.string().default("agenticflow-salt"),
-    ENV_FILE: z.string().default(envPath),
-    DEFAULT_SECRETS_FILE: z.string().default(path.resolve(process.cwd(), "config/secrets.enc")),
-    CONFIG_DIR: z.string().default(path.resolve(process.cwd(), "config")),
-    HOST_PORT: z.string().default("18080"),
-    AGENTICFLOW_DEBUG: z.preprocess((v) => v === "1" || v === "true", z.boolean().default(false)),
-});
-
-const finalParsed = refinedSchema.parse(process.env);
 
 export const {
     ALGORITHM,
@@ -47,4 +33,4 @@ export const {
     DEFAULT_SECRETS_FILE,
     CONFIG_DIR,
     AGENTICFLOW_DEBUG,
-} = finalParsed;
+} = parsed.data;
