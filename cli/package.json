@@ -27,7 +27,8 @@
     "ora": "^5.4.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "yaml": "^2.8.2"
+    "yaml": "^2.8.2",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

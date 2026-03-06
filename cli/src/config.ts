@@ -1,11 +1,32 @@
 import path from "path";
 import dotenv from "dotenv";
+import { z } from "zod";
 
 // Load existing env for the CLI process context
-(dotenv.config as any)({ path: path.resolve(process.cwd(), ".env"), quiet: true });
+const envPath = path.resolve(process.cwd(), ".env");
+dotenv.config({ path: envPath, quiet: true });
 
-export const ALGORITHM = "aes-256-gcm";
-export const SALT = "agenticflow-salt";
-export const DEFAULT_SECRETS_FILE = path.resolve(process.cwd(), "config/secrets.enc");
-export const ENV_FILE = path.resolve(process.cwd(), ".env");
-export const CONFIG_DIR = path.resolve(process.cwd(), "config");
+const configSchema = z.object({
+    ALGORITHM: z.string().default("aes-256-gcm"),
+    SALT: z.string().default("agenticflow-salt"),
+    ENV_FILE: z.string().default(envPath),
+    DEFAULT_SECRETS_FILE: z.string().default(path.resolve(process.cwd(), "config/secrets.enc")),
+    CONFIG_DIR: z.string().default(path.resolve(process.cwd(), "config")),
+    HOST_PORT: z.string().default("18080"),
+});
+
+// We safeParse because some variables might be missing (e.g. before setup)
+const parsed = configSchema.safeParse(process.env);
+
+if (!parsed.success) {
+    process.stderr.write(`[agenticflow-cli] Configuration Error: ${parsed.error.message}\n`);
+    process.exit(1);
+}
+
+export const {
+    ALGORITHM,
+    SALT,
+    ENV_FILE,
+    DEFAULT_SECRETS_FILE,
+    CONFIG_DIR,
+} = parsed.data;

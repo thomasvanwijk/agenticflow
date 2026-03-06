@@ -10,6 +10,7 @@ import { runShell } from "../utils/shell.js";
 import { generatePassword } from "../utils/crypto.js";
 import { loadSecrets, saveSecrets } from "../services/secrets.js";
 import { waitForGateway } from "../services/gateway.js";
+import { envService } from "../services/env.js";
 
 export async function setupAction(options: any) {
     console.log("\n🚀 Welcome to Agenticflow Setup!\n");
@@ -68,10 +69,8 @@ export async function setupAction(options: any) {
     // Environment Config
     console.log("\n--- Let's configure your environment ---");
     let envVars: Record<string, string> = { HOST_PORT: "18080" };
-    if (fs.existsSync(ENV_FILE)) {
-        const parsed = dotenv.parse(fs.readFileSync(ENV_FILE));
-        envVars = { ...envVars, ...parsed };
-    }
+    const existingEnv = envService.load();
+    envVars = { ...envVars, ...existingEnv };
 
     const envAnswers = options.vaultPath ? {
         VAULT_PATH: options.vaultPath,
@@ -110,8 +109,7 @@ export async function setupAction(options: any) {
         process.env.AGENTICFLOW_MASTER_PASSWORD = envVars.AGENTICFLOW_MASTER_PASSWORD;
     }
 
-    const envContent = Object.entries(envVars).map(([k, v]) => (typeof v === "string" && v.includes("$") ? `${k}='${v}'` : `${k}=${v}`)).join("\n");
-    fs.writeFileSync(ENV_FILE, envContent, "utf8");
+    envService.save(envVars);
 
     // Config bootstrap
     const configDir = path.dirname(DEFAULT_SECRETS_FILE);
@@ -146,8 +144,7 @@ export async function setupAction(options: any) {
         const remotePwd = customPwd || generatePassword(24);
         envVars.AGENTICFLOW_REMOTE_USER = "agenticflow";
         envVars.AGENTICFLOW_REMOTE_PASSWORD_HASH = bcrypt.hashSync(remotePwd, 10);
-        const finalEnv = Object.entries(envVars).map(([k, v]) => (typeof v === "string" && v.includes("$") ? `${k}='${v}'` : `${k}=${v}`)).join("\n");
-        fs.writeFileSync(ENV_FILE, finalEnv, "utf8");
+        envService.save(envVars);
         ora().succeed(`Remote Access enabled for user 'agenticflow'. Password: ${remotePwd}`);
     }
 
