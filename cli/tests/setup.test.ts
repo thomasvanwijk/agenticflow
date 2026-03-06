@@ -33,7 +33,9 @@ vi.mock("ora", () => ({
 }));
 
 vi.mock("../src/utils/shell.js", () => ({
-    runShell: vi.fn().mockReturnValue(true)
+    runShell: vi.fn().mockReturnValue(true),
+    runDockerCompose: vi.fn().mockReturnValue(true),
+    handleError: vi.fn()
 }));
 
 vi.mock("child_process", () => ({

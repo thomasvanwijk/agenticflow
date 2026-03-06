@@ -2,11 +2,9 @@ import fs from "fs";
 import path from "path";
 import inquirer from "inquirer";
 import ora from "ora";
-import { execSync } from "child_process";
-import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import { ENV_FILE, DEFAULT_SECRETS_FILE } from "../config.js";
-import { runShell } from "../utils/shell.js";
+import { runShell, runDockerCompose, handleError } from "../utils/shell.js";
 import { generatePassword } from "../utils/crypto.js";
 import { loadSecrets, saveSecrets } from "../services/secrets.js";
 import { waitForGateway } from "../services/gateway.js";
@@ -25,12 +23,13 @@ export async function setupAction(options: any) {
             const isRoot = fs.existsSync(path.resolve(process.cwd(), "cli", "package.json"));
             const cliDir = isRoot ? path.resolve(process.cwd(), "cli") : process.cwd();
             if (fs.existsSync(path.join(cliDir, "package.json"))) {
-                execSync("npm install && npm run build && npm link", { cwd: cliDir, stdio: "ignore" });
+                runShell("npm install && npm run build && npm link", true);
                 ora().succeed("CLI installed and linked successfully.");
             } else {
                 ora().info("Not running from source repository, skipping CLI link.");
             }
         } catch (err) {
+            handleError(err as Error, "CLI setup failed");
             ora().fail(`Failed to setup CLI: ${(err as Error).message}`);
         }
     }
@@ -150,7 +149,7 @@ export async function setupAction(options: any) {
 
     // Bootstrap Docker
     console.log("\n--- Starting Docker ---");
-    runShell("docker compose up -d --build", false);
+    runDockerCompose("up -d --build", false);
 
     await waitForGateway(envVars.HOST_PORT || "18080");
 
@@ -158,11 +157,13 @@ export async function setupAction(options: any) {
     if (options.index !== false) {
         const { doIndex } = await inquirer.prompt([{ type: "confirm", name: "doIndex", message: "Index now?", default: true }]);
         if (doIndex) {
-            try {
-                execSync("docker exec agenticflow-gateway mcpjungle invoke agenticflow__index_vault", { stdio: "ignore" });
-                execSync("docker exec agenticflow-gateway mcpjungle invoke agenticflow__refresh_tool_index", { stdio: "ignore" });
+            const indexSuccess = runShell("docker exec agenticflow-gateway mcpjungle invoke agenticflow__index_vault", true);
+            const refreshSuccess = runShell("docker exec agenticflow-gateway mcpjungle invoke agenticflow__refresh_tool_index", true);
+            if (indexSuccess && refreshSuccess) {
                 ora().succeed("Indexed.");
-            } catch { ora().fail("Indexing failed."); }
+            } else {
+                ora().fail("Indexing failed.");
+            }
         }
     }
 

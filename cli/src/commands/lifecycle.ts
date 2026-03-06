@@ -1,14 +1,12 @@
 import ora from "ora";
-import { runShell } from "../utils/shell.js";
+import { runDockerCompose, runShell, handleError } from "../utils/shell.js";
 import fs from "fs";
-import path from "path";
-import { execSync } from "child_process";
 import { ENV_FILE } from "../config.js";
 import inquirer from "inquirer";
 
 export function upAction() {
     const spinner = ora("Starting Agenticflow...").start();
-    if (runShell("docker compose up -d --remove-orphans", true)) {
+    if (runDockerCompose("up -d --remove-orphans", true)) {
         spinner.succeed("Agenticflow is running.");
     } else {
         spinner.fail("Failed to start Agenticflow.");
@@ -17,7 +15,7 @@ export function upAction() {
 
 export function downAction() {
     const spinner = ora("Stopping Agenticflow...").start();
-    if (runShell("docker compose down", true)) {
+    if (runDockerCompose("down", true)) {
         spinner.succeed("Agenticflow stopped.");
     } else {
         spinner.fail("Failed to stop Agenticflow.");
@@ -39,14 +37,15 @@ export async function uninstallAction(options: any) {
     const spinner = ora("Uninstalling...").start();
     try {
         if (uninstallGateway) {
-            runShell("docker compose down -v --rmi local", true);
+            runDockerCompose("down -v --rmi local", true);
             if (fs.existsSync(ENV_FILE)) fs.unlinkSync(ENV_FILE);
         }
         if (uninstallCli) {
-            try { execSync("npm uninstall -g agenticflow", { stdio: "ignore" }); } catch { }
+            runShell("npm uninstall -g agenticflow", true);
         }
         spinner.succeed("Uninstalled.");
     } catch (err) {
+        handleError(err as Error, "Uninstall failed");
         spinner.fail(`Failed: ${(err as Error).message}`);
     }
 }
