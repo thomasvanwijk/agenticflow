@@ -7,7 +7,7 @@ RUN git clone --depth 1 --branch 0.3.5 https://github.com/mcpjungle/MCPJungle.gi
 RUN go build -o /mcpjungle .
 
 # Stage 2: Build agenticflow-memory-mcp
-FROM node:22-alpine AS memory-builder
+FROM node:22-bookworm-slim AS memory-builder
 
 WORKDIR /app
 COPY agenticflow-memory-mcp/package*.json ./
@@ -16,7 +16,7 @@ COPY agenticflow-memory-mcp/ .
 RUN npm run build
 
 # Stage 3: Build agenticflow CLI
-FROM node:22-alpine AS cli-builder
+FROM node:22-bookworm-slim AS cli-builder
 
 WORKDIR /app
 COPY cli/package*.json ./

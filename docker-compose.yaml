@@ -38,7 +38,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       # Allows filesystem MCP server to access the host
-      - "${VAULT_PATH:-./data/vault}:/vault:ro"
+      - "${VAULT_PATH:-./data/vault}:/vault"
       # Config directory for MCP server registration JSON files
       - ./config:/config:ro
     depends_on:
