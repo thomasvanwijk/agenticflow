@@ -25,3 +25,5 @@ Thumbs.db
 
 # don't commit research files
 Research/
+# AI context files
+GEMINI.md
