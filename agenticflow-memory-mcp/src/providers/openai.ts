@@ -1,5 +1,6 @@
 import { OPENAI_API_KEY } from "../config.js";
 import { EmbeddingProvider } from "../types.js";
+import { logger } from "../utils/logger.js";
 
 export class OpenAIProvider implements EmbeddingProvider {
     async generate(text: string): Promise<number[]> {
@@ -23,7 +24,7 @@ export class OpenAIProvider implements EmbeddingProvider {
             const json = (await res.json()) as { data: { embedding: number[] }[] };
             return json.data[0].embedding;
         } catch (err) {
-            process.stderr.write(`TRACE: OpenAI error: ${(err as Error).stack || (err as Error).message}\n`);
+            logger.error("OpenAI provider failed", { error: (err as Error).message, stack: (err as Error).stack });
             throw new Error(`OpenAI provider failed: ${(err as Error).message}`);
         }
     }

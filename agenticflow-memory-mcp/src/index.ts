@@ -6,6 +6,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { validateConfig } from "./config.js";
 import { startAutoIndexer } from "./services/indexer.js";
 import { registerTools } from "./tools/index.js";
+import { logger } from "./utils/logger.js";
 
 // ─── Startup ─────────────────────────────────────────────────────────────────
 
@@ -28,4 +29,4 @@ startAutoIndexer();
 const transport = new StdioServerTransport();
 await server.connect(transport);
 
-process.stderr.write(`[agenticflow] Memory MCP server started successfully.\n`);
+logger.info("Memory MCP server started successfully");

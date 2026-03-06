@@ -1,5 +1,6 @@
 import { EMBEDDING_MODEL } from "../config.js";
 import { EmbeddingProvider } from "../types.js";
+import { logger } from "../utils/logger.js";
 
 export class LocalProvider implements EmbeddingProvider {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -15,11 +16,11 @@ export class LocalProvider implements EmbeddingProvider {
                     // Cache models in a writable directory inside the container
                     env.cacheDir = "/tmp/hf-cache";
                     const model = EMBEDDING_MODEL !== "nomic-embed-text" ? EMBEDDING_MODEL : "Xenova/all-MiniLM-L6-v2";
-                    process.stderr.write(`[local-embed] Loading model ${model} (first load may take a moment)...\n`);
+                    logger.info("Loading local embedding model", { model });
                     // onnxruntime-node (native binary, glibc-dependent) is replaced with onnxruntime-web
                     // (pure WASM) in the Docker build — works on Alpine Linux without glibc.
                     const loadedPipeline = await pipeline("feature-extraction", model, { dtype: "q8" });
-                    process.stderr.write(`[local-embed] Model loaded.\n`);
+                    logger.info("Local embedding model loaded");
                     return loadedPipeline;
                 })();
             }

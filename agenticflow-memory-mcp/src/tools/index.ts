@@ -9,6 +9,7 @@ import { getCollection } from "../services/chroma.js";
 import { generateEmbedding } from "../providers/index.js";
 import { walkVault, readNote } from "../services/vault.js";
 import { indexVault } from "../services/indexer.js";
+import { logger } from "../utils/logger.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -102,7 +103,7 @@ export function registerTools(server: McpServer) {
                 const { indexed, skipped, total } = await indexVault(force);
                 return { content: [{ type: "text", text: `Indexing complete.\n- Indexed: ${indexed} notes\n- Skipped (failed/unchanged): ${skipped} notes\n- Total vault files: ${total}` }] };
             } catch (err) {
-                process.stderr.write(`TRACE: ${(err as Error).stack || (err as Error).message}\n`);
+                logger.error("Indexing failed", { error: (err as Error).message, stack: (err as Error).stack });
                 return { content: [{ type: "text", text: `Indexing failed: ${(err as Error).message}` }] };
             }
         }

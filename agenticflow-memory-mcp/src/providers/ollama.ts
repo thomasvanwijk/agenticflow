@@ -1,5 +1,6 @@
 import { EMBEDDING_MODEL, OLLAMA_BASE_URL } from "../config.js";
 import { EmbeddingProvider } from "../types.js";
+import { logger } from "../utils/logger.js";
 
 export class OllamaProvider implements EmbeddingProvider {
     async generate(text: string): Promise<number[]> {
@@ -25,7 +26,7 @@ export class OllamaProvider implements EmbeddingProvider {
 
             return emb;
         } catch (err) {
-            process.stderr.write(`TRACE: Ollama error: ${(err as Error).stack || (err as Error).message}\n`);
+            logger.error("Ollama provider failed", { error: (err as Error).message, stack: (err as Error).stack });
             throw new Error(`Ollama provider failed: ${(err as Error).message}`);
         }
     }

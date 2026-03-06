@@ -6,6 +6,7 @@ import { VAULT_PATH } from "../config.js";
 import { readNote, walkVault } from "./vault.js";
 import { getCollection } from "./chroma.js";
 import { generateEmbedding } from "../providers/index.js";
+import { logger } from "../utils/logger.js";
 
 export async function indexVault(force = false) {
     const collection = await getCollection();
@@ -47,7 +48,7 @@ export async function indexVault(force = false) {
             });
             indexed++;
         } catch (fileErr) {
-            process.stderr.write(`Skipping ${relPath}: ${(fileErr as Error).message}\n`);
+            logger.warn("Skipping file during index", { path: relPath, error: (fileErr as Error).message });
             skipped++;
         }
     }
@@ -58,7 +59,7 @@ export async function indexVault(force = false) {
 export async function startAutoIndexer() {
     try {
         const isLowHardware = os.totalmem() < 4 * 1024 * 1024 * 1024 || os.cpus().length <= 2;
-        process.stderr.write(`[agenticflow] Auto-indexer starting. Hardware profile: ${isLowHardware ? 'Low (tuned for Chromebox)' : 'Standard'}\n`);
+        logger.info("Auto-indexer starting", { hardwareProfile: isLowHardware ? 'Low' : 'Standard' });
 
         const collection = await getCollection();
 
@@ -95,24 +96,24 @@ export async function startAutoIndexer() {
                     documents: [content.slice(0, 8000)],
                     metadatas: [{ path: id, title: String(data.title || path.basename(filePath, ".md")), mtime: Math.floor(stat.mtimeMs) }],
                 });
-                process.stderr.write(`[agenticflow] Auto-${action}ed: ${id}\n`);
+                logger.info(`Auto-${action}ed file`, { id });
             } catch (err) {
-                process.stderr.write(`[agenticflow] Failed to auto-${action} ${filePath}: ${(err as Error).message}\n`);
+                logger.error(`Failed to auto-${action} file`, { path: filePath, error: (err as Error).message });
             }
         };
 
         watcher.on('add', (path) => indexFile(path, 'add'));
-        watcher.on('change', (path) => indexFile(path, 'updat'));
+        watcher.on('change', (path) => indexFile(path, 'update'));
         watcher.on('unlink', async (filePath) => {
             try {
                 const relPath = path.relative(VAULT_PATH, filePath);
                 const id = relPath.replace(/\\/g, "/");
                 await collection.delete({ ids: [id] });
-                process.stderr.write(`[agenticflow] Auto-removed: ${id}\n`);
+                logger.info("Auto-removed file", { id });
             } catch (err) { }
         });
 
     } catch (err) {
-        process.stderr.write(`[agenticflow] Failed to start auto-indexer: ${(err as Error).message}\n`);
+        logger.error("Failed to start auto-indexer", { error: (err as Error).message });
     }
 }
