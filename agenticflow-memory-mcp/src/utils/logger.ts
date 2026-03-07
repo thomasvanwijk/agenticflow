@@ -1,5 +1,3 @@
-import { LOG_LEVEL } from "../config.js";
-
 type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR";
 
 const LEVELS: Record<LogLevel, number> = {
@@ -14,7 +12,7 @@ class Logger {
     private service: string;
 
     constructor(service = "memory-mcp") {
-        this.level = LEVELS[(LOG_LEVEL as LogLevel) || "INFO"] ?? LEVELS.INFO;
+        this.level = LEVELS[(process.env.LOG_LEVEL as LogLevel) || "INFO"] ?? LEVELS.INFO;
         this.service = service;
     }
 
