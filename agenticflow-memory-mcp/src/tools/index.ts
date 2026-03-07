@@ -329,7 +329,7 @@ export function registerTools(server: McpServer) {
         async () => {
             try {
                 const collection = await getCollection("mcp_tools");
-                const res = await fetch("http://localhost:8080/api/v0/tools");
+                const res = await fetch("http://127.0.0.1:8080/api/v0/tools");
                 if (!res.ok) throw new Error(`Failed to fetch tools from MCPJungle: ${res.statusText}`);
 
                 const tools = (await res.json()) as Array<{ name: string; description: string }>;
