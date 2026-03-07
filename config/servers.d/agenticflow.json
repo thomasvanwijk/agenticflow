@@ -12,7 +12,11 @@
         "CHROMA_PORT": "8000",
         "OLLAMA_BASE_URL": "http://host.docker.internal:11434",
         "EMBEDDING_PROVIDER": "local",
-        "EMBEDDING_MODEL": "Xenova/jina-embeddings-v2-small-en"
+        "EMBEDDING_MODEL": "Xenova/jina-embeddings-v2-small-en",
+        "AI_ATTRIBUTION_ENABLED": "true",
+        "AI_ATTRIBUTION_CALLOUT_TYPE": "ai",
+        "AI_ATTRIBUTION_INCLUDE_MODEL": "true",
+        "AI_ATTRIBUTION_INCLUDE_DATE": "true"
     },
     "session_mode": "stateful"
 }

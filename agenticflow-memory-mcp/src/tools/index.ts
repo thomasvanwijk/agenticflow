@@ -10,6 +10,8 @@ import { generateEmbedding } from "../providers/index.js";
 import { walkVault, readNote } from "../services/vault.js";
 import { indexVault } from "../services/indexer.js";
 import { logger, toolError } from "../utils/logger.js";
+import matter from "gray-matter";
+import { wrapAsAiCallout, mergeFrontmatterWithContributor, addContributorToFrontmatter } from "../utils/ai-attribution.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -172,9 +174,10 @@ export function registerTools(server: McpServer) {
         {
             path: z.string().describe("File path relative to vault root, e.g. 'Projects/new-project.md'"),
             frontmatter: z.record(z.unknown()).optional().describe("Key-value pairs for the note's YAML frontmatter (optional)"),
-            content: z.string().optional().describe("The initial markdown content of the note (optional)")
+            content: z.string().optional().describe("The initial markdown content of the note (optional)"),
+            ai_model: z.string().optional().describe("The AI model creating the note (for attribution)")
         },
-        async ({ path: notePath, frontmatter, content }) => {
+        async ({ path: notePath, frontmatter, content, ai_model }) => {
             try {
                 const full = path.join(VAULT_PATH, notePath.replace(/^\//, ""));
                 if (!full.startsWith(VAULT_PATH)) {
@@ -187,23 +190,9 @@ export function registerTools(server: McpServer) {
                 const dir = path.dirname(full);
                 if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-                let fileContent = "";
-                if (frontmatter && Object.keys(frontmatter).length > 0) {
-                    fileContent += "---\n";
-                    for (const [key, value] of Object.entries(frontmatter)) {
-                        if (Array.isArray(value)) {
-                            fileContent += `${key}:\n`;
-                            value.forEach(v => fileContent += `  - ${v}\n`);
-                        } else {
-                            fileContent += `${key}: ${value}\n`;
-                        }
-                    }
-                    fileContent += "---\n\n";
-                }
-
-                if (content) {
-                    fileContent += content;
-                }
+                const finalContent = wrapAsAiCallout(content || "", ai_model);
+                const finalFrontmatter = mergeFrontmatterWithContributor({}, frontmatter, ai_model);
+                const fileContent = matter.stringify(finalContent, finalFrontmatter);
 
                 fs.writeFileSync(full, fileContent);
 
@@ -219,9 +208,10 @@ export function registerTools(server: McpServer) {
         "Completely replace the contents of an existing Obsidian note. This overwrites the entire file.",
         {
             path: z.string().describe("File path relative to vault root, e.g. 'Projects/project.md'"),
-            content: z.string().describe("The new markdown content (including frontmatter if desired) to replace the file with")
+            content: z.string().describe("The new markdown content (including frontmatter if desired) to replace the file with"),
+            ai_model: z.string().optional().describe("The AI model updating the note (for attribution)")
         },
-        async ({ path: notePath, content }) => {
+        async ({ path: notePath, content, ai_model }) => {
             try {
                 const full = path.join(VAULT_PATH, notePath.replace(/^\//, ""));
                 if (!full.startsWith(VAULT_PATH)) {
@@ -231,7 +221,12 @@ export function registerTools(server: McpServer) {
                     return { content: [{ type: "text", text: `Error: Note not found at ${notePath}. Use create_note instead.` }] };
                 }
 
-                fs.writeFileSync(full, content);
+                const { data, content: body } = matter(content);
+                const finalContent = wrapAsAiCallout(body, ai_model);
+                const finalFrontmatter = mergeFrontmatterWithContributor(data, {}, ai_model);
+                const fileContent = matter.stringify(finalContent, finalFrontmatter);
+
+                fs.writeFileSync(full, fileContent);
 
                 return { content: [{ type: "text", text: `Successfully updated note at: ${notePath}` }] };
             } catch (err) {
@@ -246,9 +241,10 @@ export function registerTools(server: McpServer) {
         {
             path: z.string().describe("File path relative to vault root, e.g. 'Projects/project.md'"),
             content: z.string().describe("Content to append"),
-            heading: z.string().optional().describe("Optional exact heading (e.g., '## Meeting Notes') to append under. If not found, it appends to the end.")
+            heading: z.string().optional().describe("Optional exact heading (e.g., '## Meeting Notes') to append under. If not found, it appends to the end."),
+            ai_model: z.string().optional().describe("The AI model appending to the note (for attribution)")
         },
-        async ({ path: notePath, content, heading }) => {
+        async ({ path: notePath, content, heading, ai_model }) => {
             try {
                 const full = path.join(VAULT_PATH, notePath.replace(/^\//, ""));
                 if (!full.startsWith(VAULT_PATH)) {
@@ -259,6 +255,7 @@ export function registerTools(server: McpServer) {
                 }
 
                 let fileContent = fs.readFileSync(full, "utf-8");
+                const wrappedContent = wrapAsAiCallout(content, ai_model);
 
                 if (heading) {
                     const lines = fileContent.split("\n");
@@ -277,14 +274,17 @@ export function registerTools(server: McpServer) {
                             }
                         }
 
-                        lines.splice(insertIndex, 0, "", content);
+                        lines.splice(insertIndex, 0, "", wrappedContent);
                         fileContent = lines.join("\n");
+                        fileContent = addContributorToFrontmatter(fileContent, ai_model);
                         fs.writeFileSync(full, fileContent);
                         return { content: [{ type: "text", text: `Successfully appended to note at: ${notePath} under heading '${heading}'` }] };
                     }
                 }
 
-                fs.appendFileSync(full, "\n" + content + "\n");
+                fileContent = fileContent.trimEnd() + "\n\n" + wrappedContent + "\n";
+                fileContent = addContributorToFrontmatter(fileContent, ai_model);
+                fs.writeFileSync(full, fileContent);
                 return { content: [{ type: "text", text: `Successfully appended to the end of note at: ${notePath}` }] };
 
             } catch (err) {
