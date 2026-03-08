@@ -1,10 +1,12 @@
 import fs from "fs";
 import path from "path";
 import { CONFIG_DIR } from "../config.js";
+import { runShell } from "../utils/shell.js";
 
 export const getServersDir = () => path.join(CONFIG_DIR, "servers.d");
 
 export function listMcpAction() {
+// ... same as before
     const serversDir = getServersDir();
     if (!fs.existsSync(serversDir)) {
         console.log("No MCP servers directory found.");
@@ -61,6 +63,12 @@ export function addMcpAction(name: string, options: { command: string; env?: str
     const filePath = path.join(serversDir, `${name}.json`);
     fs.writeFileSync(filePath, JSON.stringify(config, null, 4));
     console.log(`✅ MCP server '${name}' added successfully to ${filePath}`);
+    
+    // Hot-reload
+    console.log("Registering server with gateway...");
+    runShell(`docker exec agenticflow-gateway mcpjungle register --conf /config/servers.d/${name}.json --registry http://127.0.0.1:8080`, true);
+    console.log("Refreshing tool index...");
+    runShell(`curl -s -X POST http://localhost:18080/mcp/invoke/agenticflow__refresh_tool_index`, true);
 }
 
 export function removeMcpAction(name: string) {
@@ -68,8 +76,15 @@ export function removeMcpAction(name: string) {
     const filePath = path.join(serversDir, `${name}.json`);
 
     if (fs.existsSync(filePath)) {
+        console.log(`Deregistering server from gateway...`);
+        runShell(`docker exec agenticflow-gateway mcpjungle deregister ${name} --registry http://127.0.0.1:8080`, true);
+        
         fs.unlinkSync(filePath);
         console.log(`✅ MCP server '${name}' removed successfully.`);
+
+        
+        console.log("Refreshing tool index...");
+        runShell(`curl -s -X POST http://localhost:18080/mcp/invoke/agenticflow__refresh_tool_index`, true);
     } else {
         console.error(`❌ MCP server '${name}' not found.`);
         process.exit(1);
