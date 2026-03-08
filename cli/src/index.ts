@@ -5,6 +5,7 @@ import { setupAction } from "./commands/setup.js";
 import { upAction, downAction, uninstallAction } from "./commands/lifecycle.js";
 import { embeddingAction } from "./commands/embedding.js";
 import { setSecretAction, getSecretAction, listSecretsAction, injectSecretsAction } from "./commands/secrets.js";
+import { addMcpAction, listMcpAction, removeMcpAction } from "./commands/mcp.js";
 import { DEFAULT_SECRETS_FILE } from "./config.js";
 
 const program = new Command();
@@ -32,6 +33,16 @@ program
     .command("embedding")
     .description("Configure embedding provider")
     .action(embeddingAction);
+
+const mcpCmd = program.command("mcp").description("Manage additional MCP servers");
+mcpCmd.command("list").description("List installed MCP servers").action(listMcpAction);
+mcpCmd
+    .command("add <name> [args...]")
+    .description("Add a new MCP server")
+    .requiredOption("-c, --command <cmd>", "Command to execute (e.g. npx, uvx)")
+    .option("-e, --env <env...>", "Environment variables (e.g. -e API_KEY=123)")
+    .action((name, args, options) => addMcpAction(name, options, args));
+mcpCmd.command("remove <name>").description("Remove an MCP server").action(removeMcpAction);
 
 const secretsCmd = program.command("secrets").description("Manage secrets");
 secretsCmd.command("set <key> [value]").option("-f, --file <path>", "File", DEFAULT_SECRETS_FILE).action(setSecretAction);
