@@ -33,7 +33,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     procps \
+    python3 \
+    python3-pip \
+    python3-venv \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh \
     && rm -rf /var/lib/apt/lists/*
+
+# Add uv to PATH
+ENV PATH="/root/.local/bin:${PATH}"
 
 # Copy MCPJungle binary
 COPY --from=mcpjungle-builder /mcpjungle /usr/local/bin/mcpjungle
