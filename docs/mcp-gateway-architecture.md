@@ -56,3 +56,15 @@ To ensure maximum compatibility with the broader MCP ecosystem, the `agenticflow
 - **Python 3 (`uvx`)**: Powered by Astral's `uv`, allowing blazing fast execution of Python-based MCP servers (e.g., `mcp-server-sqlite`, `mcp-server-fetch`) without requiring the user to manage local Python environments.
 
 This allows the CLI to accept commands like `npx` or `uvx` and have them flawlessly executed inside the isolated gateway environment.
+
+## Tool Discovery & Hidden Tools
+
+AgenticFlow is designed to keep the primary LLM agent's context window clean by minimizing the number of tools directly exposed to it. Instead of exposing dozens of tools, AgenticFlow relies on a **discovery-first** architecture.
+
+To achieve this, the core `agenticflow-memory-mcp` Node.js application is logically split into two roles using the `AGENTICFLOW_ROLE` environment variable:
+1. **Discovery (`agenticflow` server):** Exposes only `discover_tools`, `call_tool`, and `refresh_tool_index`. This is the ONLY server directly exposed to the LLM.
+2. **Memory/Notes (`obsidian` server):** Contains the actual note-taking and semantic search tools. 
+
+During container startup, `mcpjungle` registers the `obsidian` server but immediately disables it from the client-facing MCP protocol (`mcpjungle disable server obsidian`). The tools remain registered internally, meaning the semantic indexer (`refresh_tool_index`) can still read them, and the `call_tool` endpoint can still invoke them via `mcpjungle invoke`.
+
+This forces the AI agent to proactively use `discover_tools` to find what it needs, matching semantic intent rather than relying on hardcoded tool names.

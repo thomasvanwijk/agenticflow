@@ -1,13 +1,13 @@
 {
-    "name": "agenticflow",
+    "name": "obsidian",
     "transport": "stdio",
-    "description": "Agenticflow — semantic memory, tool discovery and execution for your Obsidian vault and integrations",
+    "description": "Agenticflow — core Obsidian memory and note-taking tools",
     "command": "node",
     "args": [
         "/app/agenticflow-memory-mcp/dist/index.js"
     ],
     "env": {
-        "AGENTICFLOW_ROLE": "discovery",
+        "AGENTICFLOW_ROLE": "memory",
         "VAULT_PATH": "/vault",
         "CHROMA_HOST": "chroma",
         "CHROMA_PORT": "8000",

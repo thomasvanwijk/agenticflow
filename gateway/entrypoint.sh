@@ -80,6 +80,10 @@ echo "[agenticflow] Hiding atlassian tools from MCP client tool list..."
 mcpjungle disable server atlassian --registry "$REGISTRY" 2>/dev/null || \
   echo "[agenticflow]   WARNING: could not disable atlassian (may already be disabled)"
 
+echo "[agenticflow] Hiding obsidian tools from MCP client tool list (forcing discovery)..."
+mcpjungle disable server obsidian --registry "$REGISTRY" 2>/dev/null || \
+  echo "[agenticflow]   WARNING: could not disable obsidian (may already be disabled)"
+
 # ── 6. Seed the tool discovery index ──────────────────────────────────────────
 echo "[agenticflow] Seeding tool discovery index (background)..."
 (

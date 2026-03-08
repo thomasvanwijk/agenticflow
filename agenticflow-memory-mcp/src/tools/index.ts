@@ -16,7 +16,10 @@ import { wrapAsAiCallout, mergeFrontmatterWithContributor, addContributorToFront
 const execFileAsync = promisify(execFile);
 
 export function registerTools(server: McpServer) {
-    server.tool(
+    const role = process.env.AGENTICFLOW_ROLE || "all";
+
+    if (role === "memory" || role === "all") {
+        server.tool(
         "semantic_search",
         "Semantically search Obsidian vault notes by meaning or intent. Returns the most relevant notes for a given query.",
         { query: z.string().describe("Search query in natural language"), limit: z.number().optional().default(5).describe("Number of results to return") },
@@ -292,12 +295,14 @@ export function registerTools(server: McpServer) {
             }
         }
     );
+    }
 
-    server.tool(
-        "discover_tools",
-        "Semantically search for available MCP tools across all registered servers (Jira, Confluence, etc.). Use this when you are not sure which tool to use for a task.",
-        { query: z.string().describe("What do you want to do? (e.g., 'search for jira issues')"), limit: z.number().optional().default(5).describe("Number of tools to return") },
-        async ({ query, limit }) => {
+    if (role === "discovery" || role === "all") {
+        server.tool(
+            "discover_tools",
+            "MUST BE YOUR FIRST STEP for finding available actions across notes, memory, and external integrations. Most tools are hidden and MUST be discovered first. Keywords that trigger this search: memory, jira, notes, codebase, search, e-mail, calendar, tasks, research. Semantically search for available MCP tools across all registered servers.",
+            { query: z.string().describe("What do you want to do? (e.g., 'search for jira issues')"), limit: z.number().optional().default(5).describe("Number of tools to return") },
+            async ({ query, limit }) => {
             try {
                 const collection = await getCollection("mcp_tools");
                 const queryEmbedding = await generateEmbedding(query);
@@ -378,14 +383,16 @@ export function registerTools(server: McpServer) {
                     { timeout: 60000 }
                 );
 
-                if (stderr && !stdout) {
-                    return { content: [{ type: "text", text: `Tool call failed:\n${stderr}` }] };
+                const output = stdout || stderr;
+                if (!output) {
+                     return { content: [{ type: "text", text: "(tool returned no output)" }] };
                 }
 
-                return { content: [{ type: "text", text: stdout || "(tool returned no output)" }] };
+                return { content: [{ type: "text", text: output }] };
             } catch (err) {
                 return toolError("call_tool", err, "Verify the tool name is correct using discover_tools.");
             }
         }
     );
+    }
 }
