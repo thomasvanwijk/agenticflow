@@ -29,3 +29,4 @@ When the `ai_attribution` feature is enabled in AgenticFlow, any content you wri
 - **`ai_model` parameter**: Always provide your identity (e.g., "Gemini 2.0 Pro") when calling `create_note`, `update_note`, or `append_to_note`.
 - **Prose Only**: Focus on providing clear prose. The system handles the callout wrapping and frontmatter updates for you.
 - **Maintain formatting**: If you are providing code blocks or Mermaid diagrams, use strict triple backticks. The system will ensure they render correctly inside the attribution callout.
+- **Frontmatter Links**: When providing frontmatter values that are Obsidian wiki-links (e.g., `parent: [[Note]]`), the system will automatically wrap them in double quotes to ensure Obsidian recognizes them as text properties.

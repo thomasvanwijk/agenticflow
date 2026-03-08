@@ -11,7 +11,7 @@ import { walkVault, readNote } from "../services/vault.js";
 import { indexVault } from "../services/indexer.js";
 import { logger, toolError } from "../utils/logger.js";
 import matter from "gray-matter";
-import { wrapAsAiCallout, mergeFrontmatterWithContributor, addContributorToFrontmatter } from "../utils/ai-attribution.js";
+import { wrapAsAiCallout, mergeFrontmatterWithContributor, addContributorToFrontmatter, stringifyWithLinks } from "../utils/ai-attribution.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -192,7 +192,7 @@ export function registerTools(server: McpServer) {
 
                 const finalContent = wrapAsAiCallout(content || "", ai_model);
                 const finalFrontmatter = mergeFrontmatterWithContributor({}, frontmatter, ai_model);
-                const fileContent = matter.stringify(finalContent, finalFrontmatter);
+                const fileContent = stringifyWithLinks(finalContent, finalFrontmatter);
 
                 fs.writeFileSync(full, fileContent);
 
@@ -224,7 +224,7 @@ export function registerTools(server: McpServer) {
                 const { data, content: body } = matter(content);
                 const finalContent = wrapAsAiCallout(body, ai_model);
                 const finalFrontmatter = mergeFrontmatterWithContributor(data, {}, ai_model);
-                const fileContent = matter.stringify(finalContent, finalFrontmatter);
+                const fileContent = stringifyWithLinks(finalContent, finalFrontmatter);
 
                 fs.writeFileSync(full, fileContent);
 

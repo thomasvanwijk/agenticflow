@@ -66,13 +66,12 @@ fi
 
 # ── 4. Clean up old servers (those whose config files are gone from servers.d) ───────────────
 echo "[agenticflow] Cleaning up old servers..."
-for server in $(mcpjungle list servers --registry "$REGISTRY" 2>/dev/null); do
+for server in $(mcpjungle list servers --registry "$REGISTRY" 2>/dev/null | grep "^[0-9]\+\." | awk '{print $2}'); do
   # Skip built-in or required servers if necessary.
-  # We assume if <server>.json is missing from servers.d/, it should go.
   if [ ! -f "${SERVERS_DIR}/${server}.json" ]; then
     echo "[agenticflow]   - ${server}: config missing in ${SERVERS_DIR}, unregistering..."
-    mcpjungle unregister "$server" --registry "$REGISTRY" 2>/dev/null || \
-      echo "[agenticflow]   WARNING: could not unregister ${server}"
+    mcpjungle deregister "$server" --registry "$REGISTRY" 2>/dev/null || \
+      echo "[agenticflow]   WARNING: could not deregister ${server}"
   fi
 done
 
