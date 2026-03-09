@@ -19,7 +19,7 @@ export async function syncState() {
     try {
         // 1. Get filesystem state
         const files = fs.existsSync(WATCH_DIR) 
-            ? fs.readdirSync(WATCH_DIR).filter(f => f.endsWith(".json") && !f.includes("example"))
+            ? fs.readdirSync(WATCH_DIR).filter(f => f.endsWith(".json") && !f.toLowerCase().includes("example"))
             : [];
             
         const desiredServers = new Map<string, any>();

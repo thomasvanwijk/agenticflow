@@ -52,6 +52,6 @@ describe("Tool Exposure & Discovery", () => {
         // Since we are searching the vault, it should return a result from the MCP tool execution
         expect(output).toContain("AgenticFlow");
         // Ensure it didn't just fail to call the tool
-        expect(output).not.toContain("Tool call failed");
+        expect(output).not.toContain("Tool call_tool failed");
     });
 });

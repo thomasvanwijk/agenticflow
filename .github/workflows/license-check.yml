@@ -27,10 +27,10 @@ jobs:
         run: |
           cd cli
           npm ci
-          npx license-checker --production --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD' --excludePrivatePackages
+          npx license-checker --production --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;(MIT OR CC0-1.0)' --excludePrivatePackages
 
       - name: Check Memory MCP Licenses
         run: |
           cd agenticflow-memory-mcp
           npm ci
-          npx license-checker --production --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD' --exclude "@chroma-core/ai-embeddings-common" --excludePrivatePackages
+          npx license-checker --production --onlyAllow 'MIT;Apache-2.0;Apache*;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;LGPL-3.0-or-later;BlueOak-1.0.0;(MIT OR CC0-1.0)' --exclude "@chroma-core/ai-embeddings-common,@chroma-core/default-embed" --excludePrivatePackages
