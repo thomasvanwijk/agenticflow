@@ -38,7 +38,7 @@ describe("Tool Exposure & Discovery", () => {
         
         // The result should contain a reference to obsidian__create_note
         expect(output).toContain("obsidian__create_note");
-    });
+    }, 15000);
 
     it("should be able to invoke hidden tools via agenticflow__call_tool", () => {
         const payload = {

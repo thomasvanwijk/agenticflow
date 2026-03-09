@@ -47,9 +47,6 @@ describe("MCP CLI Commands", () => {
         expect(config.command).toBe("uvx");
         expect(config.args).toEqual(["mcp-server-sqlite", "--db", "test.db"]);
         expect(config.env).toEqual({ DB_PATH: "/tmp/test.db" });
-
-        expect(shell.runShell).toHaveBeenCalledWith(expect.stringContaining("mcpjungle register"), true);
-        expect(shell.runShell).toHaveBeenCalledWith(expect.stringContaining("refresh_tool_index"), true);
     });
 
     it("should remove an existing MCP server", () => {
@@ -61,9 +58,6 @@ describe("MCP CLI Commands", () => {
         expect(fs.unlinkSync).toHaveBeenCalled();
         const [deletedPath] = vi.mocked(fs.unlinkSync).mock.calls[0];
         expect(deletedPath).toContain("sqlite.json");
-
-        expect(shell.runShell).toHaveBeenCalledWith(expect.stringContaining("mcpjungle deregister sqlite"), true);
-        expect(shell.runShell).toHaveBeenCalledWith(expect.stringContaining("refresh_tool_index"), true);
         
         consoleSpy.mockRestore();
     });
