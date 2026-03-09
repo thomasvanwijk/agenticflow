@@ -3,6 +3,7 @@
 > Self-hosted, plug-and-play MCP gateway for agentic productivity. One endpoint to connect all your tools (Jira, Confluence, Microsoft 365, Obsidian, and more) to any AI assistant.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License Check](https://github.com/thomasvanwijk/agenticflow/actions/workflows/license-check.yml/badge.svg)](https://github.com/thomasvanwijk/agenticflow/actions/workflows/license-check.yml)
 [![Docker](https://img.shields.io/badge/Docker-required-blue)](https://www.docker.com/)
 
 ## What is this?
@@ -13,6 +14,8 @@
 - **Obsidian memory** — semantic search and time-based retrieval over your personal knowledge vault
 - **Skill/tool discovery** — agents find the right tool by describing intent, not by knowing tool names
 - **Plug-and-play** — add new services without reconfiguring your AI client
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for current development priorities and vision.
 
 ## Architecture
 
