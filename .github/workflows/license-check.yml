@@ -1,0 +1,31 @@
+name: License check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  license-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+
+      - name: Install dependencies (CLI)
+        run: cd cli && npm install
+
+      - name: License check (CLI)
+        run: cd cli && npx license-checker --production --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD' --excludePrivatePackages
+
+      - name: Install dependencies (agenticflow-memory-mcp)
+        run: cd agenticflow-memory-mcp && npm install
+
+      - name: License check (agenticflow-memory-mcp)
+        # We allow LGPL-3.0-or-later for sharp-libvips which is dynamically linked, 0BSD, BlueOak-1.0.0, and Apache* (used by flatbuffers).
+        # We exclude the chroma packages that incorrectly report UNKNOWN and Custom licenses but are Apache 2.0.
+        run: cd agenticflow-memory-mcp && npx license-checker --production --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;BlueOak-1.0.0;Apache*;LGPL-3.0-or-later' --excludePrivatePackages --excludePackages "@chroma-core/ai-embeddings-common@0.1.10;@chroma-core/default-embed@0.1.9;agenticflow-memory-mcp@0.2.0"
