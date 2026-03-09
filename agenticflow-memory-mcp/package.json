@@ -3,6 +3,7 @@
   "version": "0.2.0",
   "type": "module",
   "description": "Obsidian memory MCP server for agenticflow — semantic search and temporal retrieval over any vault.",
+  "license": "MIT",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
