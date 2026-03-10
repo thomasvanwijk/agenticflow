@@ -126,6 +126,13 @@ export async function setupAction(options: any) {
         fs.copyFileSync(memoryExample, memoryJson);
     }
 
+    // Handle obsidian.json creation
+    const obsidianJson = path.join(serversDir, "obsidian.json");
+    const obsidianExample = path.join(serversDir, "obsidian.example.json");
+    if (!fs.existsSync(obsidianJson) && fs.existsSync(obsidianExample)) {
+        fs.copyFileSync(obsidianExample, obsidianJson);
+    }
+
     // Handle other example files in servers.d
     const exampleFiles = ["atlassian.example.json"];
     for (const f of exampleFiles) {
@@ -178,7 +185,7 @@ export async function setupAction(options: any) {
     if (options.index !== false) {
         const { doIndex } = await inquirer.prompt([{ type: "confirm", name: "doIndex", message: "Index now?", default: true }]);
         if (doIndex) {
-            const indexSuccess = runShell("docker exec agenticflow-gateway mcpjungle invoke agenticflow__index_vault", true);
+            const indexSuccess = runShell("docker exec agenticflow-gateway mcpjungle invoke obsidian__index_vault", true);
             const refreshSuccess = runShell("docker exec agenticflow-gateway mcpjungle invoke agenticflow__refresh_tool_index", true);
             if (indexSuccess && refreshSuccess) {
                 ora().succeed("Indexed.");

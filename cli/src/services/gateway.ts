@@ -6,7 +6,7 @@ export async function waitForGateway(hostPort: string) {
     const waitSpinner = ora("Waiting for MCPJungle registry to become healthy...").start();
     let attempts = 0;
     while (true) {
-        if (runShell(`curl -s --max-time 5 "${gatewayUrl}" | grep -q "semantic_search"`, true)) {
+        if (runShell(`curl -s --max-time 5 "${gatewayUrl}" | grep -q "discover_tools"`, true)) {
             break;
         }
         attempts++;
