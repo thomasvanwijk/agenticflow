@@ -14,7 +14,20 @@ const WATCH_DIR = process.env.SERVERS_DIR || "/config/servers.d";
 // HIDDEN_SERVERS is now replaced by a "hidden by default" logic.
 // Any server that is not "agenticflow" and doesn't have "expose": true in its config will be hidden.
 
+let isSyncing = false;
+const configCache = new Map<string, string>(); // name -> stringified config
+
+export function resetSyncState() {
+    isSyncing = false;
+    configCache.clear();
+}
+
 export async function syncState() {
+    if (isSyncing) {
+        logger.info("Sync already in progress, skipping...", "sync-controller");
+        return;
+    }
+    isSyncing = true;
     logger.info("Starting synchronization cycle...", "sync-controller");
 
     try {
@@ -48,7 +61,8 @@ export async function syncState() {
             if (!desiredServers.has(name)) {
                 logger.info(`Deregistering removed server: ${name}`, "sync-controller");
                 try {
-                    await execFileAsync("mcpjungle", ["deregister", name, "--registry", REGISTRY]);
+                    await execFileAsync("/usr/local/bin/mcpjungle", ["deregister", name, "--registry", REGISTRY]);
+                    configCache.delete(name);
                     registryChanged = true;
                 } catch (e) {
                     logger.error(`Failed to deregister ${name}`, "sync-controller", { error: String(e) });
@@ -60,60 +74,73 @@ export async function syncState() {
         const handledServers = new Set<string>();
         for (const [name, config] of desiredServers.entries()) {
             if (name === "agenticflow") continue; // Skip self to prevent kill loop
-            try {
-                if (currentServers.has(name)) {
-                    // To ensure the latest config is applied, we deregister and re-register.
-                    // This is necessary because mcpjungle POST doesn't overwrite all fields if already exists.
-                    logger.info(`Updating existing server: ${name}`, "sync-controller");
-                    await execFileAsync("mcpjungle", ["deregister", name, "--registry", REGISTRY]).catch(() => { });
-                } else {
-                    logger.info(`Registering new server: ${name}`, "sync-controller");
-                }
+            
+            const configString = JSON.stringify(config);
+            const isUnchanged = configCache.get(name) === configString && currentServers.has(name);
 
-                const postRes = await fetch(`${REGISTRY}/api/v0/servers`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(config)
-                });
-
-                if (postRes.ok) {
-                    registryChanged = true;
-                    handledServers.add(name);
-
-                    // Enforce exposure state immediately after registration
-                    const shouldExpose = config.expose === true;
-                    if (!shouldExpose) {
-                        logger.info(`Hiding server from direct client exposure: ${name}`, "sync-controller");
-                        await execFileAsync("mcpjungle", ["disable", "server", name, "--registry", REGISTRY]).catch(() => { });
+            if (isUnchanged) {
+                logger.debug(`Server ${name} config unchanged, skipping re-registration`, "sync-controller");
+                handledServers.add(name);
+            } else {
+                try {
+                    if (currentServers.has(name)) {
+                        logger.info(`Config changed or missing. Updating existing server: ${name}`, "sync-controller");
+                        await execFileAsync("/usr/local/bin/mcpjungle", ["deregister", name, "--registry", REGISTRY]).catch(() => { });
                     } else {
-                        logger.info(`Exposing server directly to client: ${name}`, "sync-controller");
-                        await execFileAsync("mcpjungle", ["enable", "server", name, "--registry", REGISTRY]).catch(() => { });
+                        logger.info(`Registering new server: ${name}`, "sync-controller");
                     }
-                } else {
-                    const errText = await postRes.text();
-                    logger.error(`Failed to register ${name}: ${errText}`, "sync-controller");
+
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s timeout
+
+                    const postRes = await fetch(`${REGISTRY}/api/v0/servers`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(config),
+                        signal: controller.signal
+                    }).finally(() => clearTimeout(timeoutId));
+
+                    if (postRes.ok) {
+                        registryChanged = true;
+                        handledServers.add(name);
+                        configCache.set(name, configString);
+                        logger.info(`Successfully (re)registered ${name}`, "sync-controller");
+                    } else {
+                        const errText = await postRes.text();
+                        logger.error(`Failed to register ${name}: ${errText}`, "sync-controller");
+                    }
+                } catch (e) {
+                    logger.error(`Error during registration of ${name}`, "sync-controller", { error: String(e) });
                 }
-            } catch (e) {
-                logger.error(`Error during registration of ${name}`, "sync-controller", { error: String(e) });
+            }
+
+            // 4.1 Enforce exposure state for this server (whether we just registered it or it was already there)
+            if (currentServers.has(name) || handledServers.has(name)) {
+                const shouldExpose = config.expose === true;
+                try {
+                    if (!shouldExpose) {
+                        logger.info(`Ensuring server is HIDDEN: ${name}`, "sync-controller");
+                        await execFileAsync("/usr/local/bin/mcpjungle", ["disable", "server", name, "--registry", REGISTRY]);
+                    } else {
+                        logger.info(`Ensuring server is EXPOSED: ${name}`, "sync-controller");
+                        await execFileAsync("/usr/local/bin/mcpjungle", ["enable", "server", name, "--registry", REGISTRY]);
+                    }
+                } catch (e) {
+                    logger.error(`Failed to enforce exposure state for ${name}`, "sync-controller", { error: String(e) });
+                }
             }
         }
 
-        // 4.5 Enforce state for existing servers that weren't just registered/updated
+        // 4.5 Clean up any other servers that might be in the registry but not in handled list
         for (const name of currentServers) {
-            if (handledServers.has(name)) continue;
-
+            if (handledServers.has(name) || name === "agenticflow") continue;
+            
+            // If it's in registry but not desired, it should have been deregistered in step 3.
+            // If it's in registry but registration failed in step 4, we might still want to hide it if it's a known server.
             const config = desiredServers.get(name);
-            if (config) {
-                const shouldExpose = config.expose === true || name === "agenticflow";
-                if (!shouldExpose) {
-                    await execFileAsync("mcpjungle", ["disable", "server", name, "--registry", REGISTRY]).catch(e => {
-                        logger.error(`Failed to enforce hidden state for ${name}`, "sync-controller", { error: String(e) });
-                    });
-                } else if (name !== "agenticflow") {
-                    await execFileAsync("mcpjungle", ["enable", "server", name, "--registry", REGISTRY]).catch(e => {
-                        logger.error(`Failed to enforce exposed state for ${name}`, "sync-controller", { error: String(e) });
-                    });
-                }
+            if (config && !handledServers.has(name)) {
+                logger.warn(`Enforcing hidden state for ${name} even though registration failed`, "sync-controller");
+                await execFileAsync("/usr/local/bin/mcpjungle", ["disable", "server", name, "--registry", REGISTRY]).catch(() => {});
             }
         }
 
@@ -128,6 +155,8 @@ export async function syncState() {
         logger.info("Synchronization complete.", "sync-controller");
     } catch (err) {
         logger.error("Synchronization failed", "sync-controller", { error: String(err) });
+    } finally {
+        isSyncing = false;
     }
 }
 

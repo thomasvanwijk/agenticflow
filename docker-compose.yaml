@@ -46,7 +46,7 @@ services:
       # Allows filesystem MCP server to access the host
       - "${VAULT_PATH:-./data/vault}:/vault"
       # Config directory for MCP server registration JSON files
-      - ./config:/config:ro
+      - ./config:/config:rw
     depends_on:
       postgres:
         condition: service_healthy

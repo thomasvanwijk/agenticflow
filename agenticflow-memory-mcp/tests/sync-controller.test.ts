@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { syncState } from "../src/services/sync-controller.js";
+import { syncState, resetSyncState } from "../src/services/sync-controller.js";
 import fs from "fs";
 import { execFile } from "child_process";
 
@@ -32,6 +32,7 @@ describe("Sync Controller - State Reconciliation Engine", () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        resetSyncState();
 
         // Mock global fetch
         globalFetchMock = vi.fn();
@@ -116,7 +117,7 @@ describe("Sync Controller - State Reconciliation Engine", () => {
 
         // Should deregister 'old-server' via mcpjungle deregister
         expect(execFile).toHaveBeenCalledWith(
-            "mcpjungle",
+            "/usr/local/bin/mcpjungle",
             ["deregister", "old-server", "--registry", "http://127.0.0.1:8080"],
             expect.any(Function)
         );
@@ -152,7 +153,7 @@ describe("Sync Controller - State Reconciliation Engine", () => {
 
         // Should have been DISABLED by default
         expect(execFile).toHaveBeenCalledWith(
-            "mcpjungle",
+            "/usr/local/bin/mcpjungle",
             ["disable", "server", "unknown-server", "--registry", "http://127.0.0.1:8080"],
             expect.any(Function)
         );
@@ -182,7 +183,7 @@ describe("Sync Controller - State Reconciliation Engine", () => {
 
         // Should have been ENABLED (exposed) via mcpjungle enable
         expect(execFile).toHaveBeenCalledWith(
-            "mcpjungle",
+            "/usr/local/bin/mcpjungle",
             ["enable", "server", "exposed-server", "--registry", "http://127.0.0.1:8080"],
             expect.any(Function)
         );
@@ -227,7 +228,7 @@ describe("Sync Controller - State Reconciliation Engine", () => {
 
         // Obsidian should be disabled
         expect(execFile).toHaveBeenCalledWith(
-            "mcpjungle",
+            "/usr/local/bin/mcpjungle",
             ["disable", "server", "obsidian", "--registry", "http://127.0.0.1:8080"],
             expect.any(Function)
         );
@@ -238,5 +239,55 @@ describe("Sync Controller - State Reconciliation Engine", () => {
             ["disable", "server", "agenticflow", "--registry", "http://127.0.0.1:8080"],
             expect.any(Function)
         );
+    });
+    it("should skip re-registration if config is unchanged", async () => {
+        // Filesystem has unchanged-server
+        (fs.existsSync as any).mockReturnValue(true);
+        (fs.readdirSync as any).mockReturnValue(["unchanged.json"]);
+        const config = { name: "unchanged-server", expose: true };
+        (fs.readFileSync as any).mockReturnValue(JSON.stringify(config));
+
+        // Registry has the server
+        globalFetchMock.mockImplementation((url: string, options: any) => {
+            if (url.endsWith("/api/v0/servers") && (!options || options.method === "GET")) {
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve([config])
+                });
+            }
+            if (url.endsWith("/api/v0/tools")) {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+            }
+            return Promise.resolve({ ok: true });
+        });
+
+        // 1. Initial sync (to populate cache)
+        await syncState();
+        
+        // Should have registered once
+        const postCalls = globalFetchMock.mock.calls.filter((call: any) => call[0].endsWith("/api/v0/servers") && call[1]?.method === "POST");
+        expect(postCalls.length).toBe(1);
+        vi.clearAllMocks();
+
+        // 2. Second sync with same config
+        // Mock registry return for second call
+        globalFetchMock.mockImplementation((url: string, options: any) => {
+            if (url.endsWith("/api/v0/servers") && (!options || options.method === "GET")) {
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve([config])
+                });
+            }
+            if (url.endsWith("/api/v0/tools")) {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+            }
+            return Promise.resolve({ ok: true });
+        });
+
+        await syncState();
+
+        // Should NOT have registered again
+        const postCallsSecond = globalFetchMock.mock.calls.filter((call: any) => call[0].endsWith("/api/v0/servers") && call[1]?.method === "POST");
+        expect(postCallsSecond.length).toBe(0);
     });
 });
