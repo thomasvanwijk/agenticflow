@@ -15,6 +15,19 @@ export async function setSecretAction(key: string, value: string | undefined, op
     secrets[key] = secretValue!;
     saveSecrets(options.file || DEFAULT_SECRETS_FILE, secrets, pwd);
     console.log(`Secret '${key}' saved.`);
+
+    const { sync } = await inquirer.prompt([
+        {
+            type: "confirm",
+            name: "sync",
+            message: "Would you like to synchronize and apply these secrets to your MCP configurations now?",
+            default: true
+        }
+    ]);
+
+    if (sync) {
+        await syncAllConfigs();
+    }
 }
 
 export async function getSecretAction(key: string, options: any) {
@@ -30,9 +43,19 @@ export async function listSecretsAction(options: any) {
     Object.keys(secrets).forEach(k => console.log(` - ${k}`));
 }
 
-export async function injectSecretsAction(options: any) {
+export function injectContent(content: string, secrets: Record<string, string>): string {
+    return content.replace(/\$\{([A-Z0-9_]+)\}|\{\{([A-Z0-9_]+)\}\}/gi, (m, g1, g2) => secrets[g1 || g2] || process.env[g1 || g2] || m);
+}
+
+export function injectSecretsToFile(filePath: string, secrets: Record<string, string>, outPath: string) {
+    const content = fs.readFileSync(filePath, "utf8");
+    const injected = injectContent(content, secrets);
+    fs.writeFileSync(outPath, injected);
+}
+
+export async function syncAllConfigs() {
     const pwd = await getMasterPassword();
-    const secrets = loadSecrets(options.file || DEFAULT_SECRETS_FILE, pwd);
+    const secrets = loadSecrets(DEFAULT_SECRETS_FILE, pwd);
 
     // Scan both base config and servers.d for templates
     const searchDirs = [CONFIG_DIR, path.join(CONFIG_DIR, "servers.d")];
@@ -45,12 +68,14 @@ export async function injectSecretsAction(options: any) {
             if (!file.includes(".example.")) continue;
 
             const filePath = path.join(dir, file);
-            const content = fs.readFileSync(filePath, "utf8");
-            const injected = content.replace(/\$\{([A_Z0-9_]+)\}|\{\{([A_Z0-9_]+)\}\}/gi, (m, g1, g2) => secrets[g1 || g2] || process.env[g1 || g2] || m);
-
             const outPath = path.join(dir, file.replace(".example.", "."));
-            fs.writeFileSync(outPath, injected);
+            injectSecretsToFile(filePath, secrets, outPath);
             console.log(`Injected ${outPath}`);
         }
     }
+    console.log("✅ All configurations synchronized.");
+}
+
+export async function injectSecretsAction(options: any) {
+    await syncAllConfigs();
 }

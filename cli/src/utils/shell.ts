@@ -33,6 +33,18 @@ export function runShell(command: string, silent = false): boolean {
 }
 
 /**
+ * Run a command and return its stdout.
+ */
+export function runShellWithOutput(command: string): string {
+    try {
+        return execSync(command, { stdio: "pipe" }).toString().trim();
+    } catch (err) {
+        handleError(err as Error, `Command failed: ${command}`);
+        return "";
+    }
+}
+
+/**
  * Run a Docker Compose command with proper abstraction.
  */
 export function runDockerCompose(args: string, silent = false): boolean {

@@ -27,6 +27,7 @@ services:
     environment:
       - DATABASE_URL=postgres://agenticflow:${POSTGRES_PASSWORD:-changeme}@postgres:5432/agenticflow
       - AGENTICFLOW_MASTER_PASSWORD=${AGENTICFLOW_MASTER_PASSWORD:-}
+      - MCP_SERVER_INIT_REQ_TIMEOUT_SEC=120
       # Required configuration for remote agent context ingestion (Agenticflow memory system)
       - VAULT_PATH=/vault
       - CHROMA_HOST=chroma

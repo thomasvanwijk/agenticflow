@@ -8,7 +8,7 @@ import { generateEmbedding } from "../providers/index.js";
 import { logger } from "../utils/logger.js";
 
 const execFileAsync = promisify(execFile);
-const REGISTRY = "http://127.0.0.1:8080";
+const REGISTRY = "http://localhost:8080";
 const WATCH_DIR = process.env.SERVERS_DIR || "/config/servers.d";
 
 const HIDDEN_SERVERS = ["obsidian", "atlassian"];
@@ -18,10 +18,10 @@ export async function syncState() {
 
     try {
         // 1. Get filesystem state
-        const files = fs.existsSync(WATCH_DIR) 
+        const files = fs.existsSync(WATCH_DIR)
             ? fs.readdirSync(WATCH_DIR).filter(f => f.endsWith(".json") && !f.toLowerCase().includes("example"))
             : [];
-            
+
         const desiredServers = new Map<string, any>();
         for (const file of files) {
             try {
@@ -38,7 +38,7 @@ export async function syncState() {
         // 2. Get registry state
         const res = await fetch(`${REGISTRY}/api/v0/servers`);
         if (!res.ok) throw new Error(`Failed to fetch registry state: ${res.status}`);
-        const currentServersList = await res.json() as Array<{name: string}>;
+        const currentServersList = await res.json() as Array<{ name: string }>;
         const currentServers = new Set(currentServersList.map(s => s.name));
 
         // 3. Delete orphaned servers
@@ -55,30 +55,37 @@ export async function syncState() {
             }
         }
 
-        // 4. Register new servers
+        // 4. Register or Update servers
         for (const [name, config] of desiredServers.entries()) {
-            if (!currentServers.has(name)) {
-                logger.info(`Registering new server: ${name}`, "sync-controller");
-                try {
-                    const postRes = await fetch(`${REGISTRY}/api/v0/servers`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(config)
-                    });
-                    
-                    if (postRes.ok) {
-                        registryChanged = true;
-                        if (HIDDEN_SERVERS.includes(name)) {
-                            logger.info(`Hiding server: ${name}`, "sync-controller");
-                            await execFileAsync("mcpjungle", ["disable", "server", name, "--registry", REGISTRY]);
-                        }
-                    } else {
-                        const errText = await postRes.text();
-                        logger.error(`Failed to register ${name}: ${errText}`, "sync-controller");
-                    }
-                } catch (e) {
-                    logger.error(`Error during registration of ${name}`, "sync-controller", { error: String(e) });
+            if (name === "agenticflow") continue; // Skip self to prevent kill loop
+            try {
+                if (currentServers.has(name)) {
+                    // To ensure the latest config is applied, we deregister and re-register.
+                    // This is necessary because mcpjungle POST doesn't overwrite all fields if already exists.
+                    logger.info(`Updating existing server: ${name}`, "sync-controller");
+                    await execFileAsync("mcpjungle", ["deregister", name, "--registry", REGISTRY]).catch(() => { });
+                } else {
+                    logger.info(`Registering new server: ${name}`, "sync-controller");
                 }
+
+                const postRes = await fetch(`${REGISTRY}/api/v0/servers`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(config)
+                });
+
+                if (postRes.ok) {
+                    registryChanged = true;
+                    if (HIDDEN_SERVERS.includes(name)) {
+                        logger.info(`Hiding server: ${name}`, "sync-controller");
+                        await execFileAsync("mcpjungle", ["disable", "server", name, "--registry", REGISTRY]).catch(() => { });
+                    }
+                } else {
+                    const errText = await postRes.text();
+                    logger.error(`Failed to register ${name}: ${errText}`, "sync-controller");
+                }
+            } catch (e) {
+                logger.error(`Error during registration of ${name}`, "sync-controller", { error: String(e) });
             }
         }
 
@@ -98,7 +105,7 @@ export async function syncState() {
             await new Promise(r => setTimeout(r, 2000));
             await refreshIndex();
         }
-        
+
         logger.info("Synchronization complete.", "sync-controller");
     } catch (err) {
         logger.error("Synchronization failed", "sync-controller", { error: String(err) });
@@ -106,14 +113,14 @@ export async function syncState() {
 }
 
 async function refreshIndex() {
-// ... unchanged
+    // ... unchanged
     try {
         const collection = await getCollection("mcp_tools");
         const res = await fetch(`${REGISTRY}/api/v0/tools`);
         if (!res.ok) {
             throw new Error(`Failed to fetch tools from registry: ${res.statusText}`);
         }
-        const tools = await res.json() as Array<{name: string, description: string}>;
+        const tools = await res.json() as Array<{ name: string, description: string }>;
 
         const count = await collection.count();
         if (count > 0) {
@@ -141,12 +148,12 @@ async function refreshIndex() {
 
 export function startSyncController() {
     logger.info(`Initializing Sync Controller on ${WATCH_DIR}`, "sync-controller");
-    
+
     // Perform an immediate synchronous run to enforce states on startup
-    syncState().catch(() => {});
-    
+    syncState().catch(() => { });
+
     let timeout: NodeJS.Timeout | null = null;
-    
+
     const triggerSync = () => {
         if (timeout) clearTimeout(timeout);
         timeout = setTimeout(() => {
@@ -156,7 +163,7 @@ export function startSyncController() {
 
     const watcher = chokidar.watch(WATCH_DIR, {
         persistent: true,
-        ignoreInitial: true, 
+        ignoreInitial: true,
         depth: 0
     });
 

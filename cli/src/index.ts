@@ -37,12 +37,24 @@ program
 const mcpCmd = program.command("mcp").description("Manage additional MCP servers");
 mcpCmd.command("list").description("List installed MCP servers").action(listMcpAction);
 mcpCmd
-    .command("add <name> [args...]")
+    .command("add [name] [args...]")
     .description("Add a new MCP server")
-    .requiredOption("-c, --command <cmd>", "Command to execute (e.g. npx, uvx)")
+    .option("-c, --command <cmd>", "Command to execute (e.g. npx, uvx)")
     .option("-e, --env <env...>", "Environment variables (e.g. -e API_KEY=123)")
-    .action((name, args, options) => addMcpAction(name, options, args));
+    .action(async (name, args, options) => await addMcpAction(name, options, args));
 mcpCmd.command("remove <name>").description("Remove an MCP server").action(removeMcpAction);
+mcpCmd.command("status [name]").description("Check status of MCP servers").action(async (name) => {
+    const { statusMcpAction } = await import("./commands/mcp.js");
+    await statusMcpAction(name);
+});
+mcpCmd
+    .command("logs <name>")
+    .description("View logs for a specific MCP server")
+    .option("-t, --tail <n>", "number of lines to show", "20")
+    .action(async (name, options) => {
+        const { logsMcpAction } = await import("./commands/mcp.js");
+        await logsMcpAction(name, options);
+    });
 
 const secretsCmd = program.command("secrets").description("Manage secrets");
 secretsCmd.command("set <key> [value]").option("-f, --file <path>", "File", DEFAULT_SECRETS_FILE).action(setSecretAction);

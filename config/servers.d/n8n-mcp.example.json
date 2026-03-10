@@ -1,0 +1,16 @@
+{
+    "name": "n8n-mcp",
+    "transport": "stdio",
+    "command": "npx",
+    "args": [
+        "-y",
+        "n8n-mcp"
+    ],
+    "env": {
+        "N8N_API_URL": "${MCP_N8N_MCP_N8N_API_URL}",
+        "N8N_API_KEY": "${MCP_N8N_MCP_N8N_API_KEY}",
+        "N8N_MCP_TELEMETRY_DISABLED": "true",
+        "MCP_MODE": "stdio"
+    },
+    "session_mode": "stateful"
+}

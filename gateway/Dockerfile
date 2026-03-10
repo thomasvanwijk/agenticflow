@@ -54,8 +54,9 @@ RUN cd /app/cli && npm link
 
 WORKDIR /
 
-# Install npm-based MCP servers and patch Jira search API
-RUN npm install -g mcp-atlassian jsdom && \
+# Install global MCP servers and build tools for native dependencies
+RUN apt-get update && apt-get install -y build-essential python3-dev g++ make && \
+    npm install -g mcp-atlassian jsdom && \
     sed -i 's/response.data.issues.map/(response.data.issues || []).map/g' /usr/local/lib/node_modules/mcp-atlassian/dist/jira/handlers.js && \
     sed -i "s|/rest/api/3/search|/rest/api/3/search/jql|g" /usr/local/lib/node_modules/mcp-atlassian/dist/jira/handlers.js
 
