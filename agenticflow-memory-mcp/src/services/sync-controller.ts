@@ -8,10 +8,11 @@ import { generateEmbedding } from "../providers/index.js";
 import { logger } from "../utils/logger.js";
 
 const execFileAsync = promisify(execFile);
-const REGISTRY = "http://localhost:8080";
+const REGISTRY = process.env.REGISTRY || "http://127.0.0.1:8080";
 const WATCH_DIR = process.env.SERVERS_DIR || "/config/servers.d";
 
-const HIDDEN_SERVERS = ["obsidian", "atlassian"];
+// HIDDEN_SERVERS is now replaced by a "hidden by default" logic.
+// Any server that is not "agenticflow" and doesn't have "expose": true in its config will be hidden.
 
 export async function syncState() {
     logger.info("Starting synchronization cycle...", "sync-controller");
@@ -56,6 +57,7 @@ export async function syncState() {
         }
 
         // 4. Register or Update servers
+        const handledServers = new Set<string>();
         for (const [name, config] of desiredServers.entries()) {
             if (name === "agenticflow") continue; // Skip self to prevent kill loop
             try {
@@ -76,9 +78,16 @@ export async function syncState() {
 
                 if (postRes.ok) {
                     registryChanged = true;
-                    if (HIDDEN_SERVERS.includes(name)) {
-                        logger.info(`Hiding server: ${name}`, "sync-controller");
+                    handledServers.add(name);
+
+                    // Enforce exposure state immediately after registration
+                    const shouldExpose = config.expose === true;
+                    if (!shouldExpose) {
+                        logger.info(`Hiding server from direct client exposure: ${name}`, "sync-controller");
                         await execFileAsync("mcpjungle", ["disable", "server", name, "--registry", REGISTRY]).catch(() => { });
+                    } else {
+                        logger.info(`Exposing server directly to client: ${name}`, "sync-controller");
+                        await execFileAsync("mcpjungle", ["enable", "server", name, "--registry", REGISTRY]).catch(() => { });
                     }
                 } else {
                     const errText = await postRes.text();
@@ -89,12 +98,22 @@ export async function syncState() {
             }
         }
 
-        // Enforce hidden state for existing servers just in case
+        // 4.5 Enforce state for existing servers that weren't just registered/updated
         for (const name of currentServers) {
-            if (desiredServers.has(name) && HIDDEN_SERVERS.includes(name)) {
-                await execFileAsync("mcpjungle", ["disable", "server", name, "--registry", REGISTRY]).catch(e => {
-                    logger.error(`Failed to enforce hidden state for ${name}`, "sync-controller", { error: String(e) });
-                });
+            if (handledServers.has(name)) continue;
+
+            const config = desiredServers.get(name);
+            if (config) {
+                const shouldExpose = config.expose === true || name === "agenticflow";
+                if (!shouldExpose) {
+                    await execFileAsync("mcpjungle", ["disable", "server", name, "--registry", REGISTRY]).catch(e => {
+                        logger.error(`Failed to enforce hidden state for ${name}`, "sync-controller", { error: String(e) });
+                    });
+                } else if (name !== "agenticflow") {
+                    await execFileAsync("mcpjungle", ["enable", "server", name, "--registry", REGISTRY]).catch(e => {
+                        logger.error(`Failed to enforce exposed state for ${name}`, "sync-controller", { error: String(e) });
+                    });
+                }
             }
         }
 

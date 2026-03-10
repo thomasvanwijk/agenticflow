@@ -32,11 +32,11 @@ describe("Sync Controller - State Reconciliation Engine", () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        
+
         // Mock global fetch
         globalFetchMock = vi.fn();
         global.fetch = globalFetchMock;
-        
+
         // Default filesystem mock
         existsSyncSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(true);
         readdirSyncSpy = vi.spyOn(fs, 'readdirSync').mockReturnValue(["obsidian.json", "sqlite.json"] as any);
@@ -82,11 +82,12 @@ describe("Sync Controller - State Reconciliation Engine", () => {
                 body: JSON.stringify({ name: "sqlite" })
             })
         );
-        
-        // Should NOT have posted obsidian
-        expect(globalFetchMock).not.toHaveBeenCalledWith(
+
+        // Should also have posted obsidian (to ensure latest config)
+        expect(globalFetchMock).toHaveBeenCalledWith(
             expect.stringContaining("/api/v0/servers"),
             expect.objectContaining({
+                method: "POST",
                 body: JSON.stringify({ name: "obsidian" })
             })
         );
@@ -121,19 +122,16 @@ describe("Sync Controller - State Reconciliation Engine", () => {
         );
     });
 
-    it("should immediately hide specific servers like obsidian after registration", async () => {
-        // Filesystem has obsidian
+    it("should hide any server by default (except agenticflow)", async () => {
+        // Filesystem has unknown-server
         (fs.existsSync as any).mockReturnValue(true);
-        (fs.readdirSync as any).mockReturnValue(["obsidian.json"]);
-        (fs.readFileSync as any).mockReturnValue(JSON.stringify({ name: "obsidian" }));
+        (fs.readdirSync as any).mockReturnValue(["unknown.json"]);
+        (fs.readFileSync as any).mockReturnValue(JSON.stringify({ name: "unknown-server" }));
 
         // Registry is empty
         globalFetchMock.mockImplementation((url: string, options: any) => {
             if (url.endsWith("/api/v0/servers") && (!options || options.method === "GET")) {
-                return Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve([])
-                });
+                return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
             }
             if (url.endsWith("/api/v0/servers") && options?.method === "POST") {
                 return Promise.resolve({ ok: true });
@@ -146,16 +144,98 @@ describe("Sync Controller - State Reconciliation Engine", () => {
 
         await syncState();
 
-        // Registration should happen
+        // Should have been registered
         expect(globalFetchMock).toHaveBeenCalledWith(
             expect.stringContaining("/api/v0/servers"),
             expect.objectContaining({ method: "POST" })
         );
 
-        // Disabling logic should be triggered immediately
+        // Should have been DISABLED by default
+        expect(execFile).toHaveBeenCalledWith(
+            "mcpjungle",
+            ["disable", "server", "unknown-server", "--registry", "http://127.0.0.1:8080"],
+            expect.any(Function)
+        );
+    });
+
+    it("should honor explicit expose: true flag", async () => {
+        // Filesystem has exposed-server
+        (fs.existsSync as any).mockReturnValue(true);
+        (fs.readdirSync as any).mockReturnValue(["exposed.json"]);
+        (fs.readFileSync as any).mockReturnValue(JSON.stringify({ name: "exposed-server", expose: true }));
+
+        // Registry is empty
+        globalFetchMock.mockImplementation((url: string, options: any) => {
+            if (url.endsWith("/api/v0/servers") && (!options || options.method === "GET")) {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+            }
+            if (url.endsWith("/api/v0/servers") && options?.method === "POST") {
+                return Promise.resolve({ ok: true });
+            }
+            if (url.endsWith("/api/v0/tools")) {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+            }
+            return Promise.resolve({ ok: true });
+        });
+
+        await syncState();
+
+        // Should have been ENABLED (exposed) via mcpjungle enable
+        expect(execFile).toHaveBeenCalledWith(
+            "mcpjungle",
+            ["enable", "server", "exposed-server", "--registry", "http://127.0.0.1:8080"],
+            expect.any(Function)
+        );
+
+        // Should NOT have been disabled
+        expect(execFile).not.toHaveBeenCalledWith(
+            "mcpjungle",
+            ["disable", "server", "exposed-server", "--registry", "http://127.0.0.1:8080"],
+            expect.any(Function)
+        );
+    });
+
+    it("should never hide the agenticflow server itself", async () => {
+        // Filesystem has agenticflow (which is usually skipped in the loop but handled in enforce loop)
+        // Wait, the main loop specifically skips agenticflow: if (name === "agenticflow") continue;
+        // But the enforce loop should also honor it.
+
+        // Filesystem has obsidian (default hidden) and agenticflow
+        (fs.existsSync as any).mockReturnValue(true);
+        (fs.readdirSync as any).mockReturnValue(["obsidian.json", "agenticflow.json"]);
+        (fs.readFileSync as any).mockImplementation((path: any) => {
+            if (path.includes("obsidian.json")) return JSON.stringify({ name: "obsidian" });
+            if (path.includes("agenticflow.json")) return JSON.stringify({ name: "agenticflow" });
+            return "{}";
+        });
+
+        // Registry has both
+        globalFetchMock.mockImplementation((url: string, options: any) => {
+            if (url.endsWith("/api/v0/servers") && (!options || options.method === "GET")) {
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve([{ name: "obsidian" }, { name: "agenticflow" }])
+                });
+            }
+            if (url.endsWith("/api/v0/tools")) {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+            }
+            return Promise.resolve({ ok: true });
+        });
+
+        await syncState();
+
+        // Obsidian should be disabled
         expect(execFile).toHaveBeenCalledWith(
             "mcpjungle",
             ["disable", "server", "obsidian", "--registry", "http://127.0.0.1:8080"],
+            expect.any(Function)
+        );
+
+        // Agenticflow should NEVER be disabled
+        expect(execFile).not.toHaveBeenCalledWith(
+            "mcpjungle",
+            ["disable", "server", "agenticflow", "--registry", "http://127.0.0.1:8080"],
             expect.any(Function)
         );
     });
