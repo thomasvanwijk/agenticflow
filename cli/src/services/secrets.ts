@@ -1,8 +1,17 @@
 import fs from "fs";
 import path from "path";
 import inquirer from "inquirer";
+import { Entry } from "@napi-rs/keyring";
 import { DEFAULT_SECRETS_FILE } from "../config.js";
 import { decrypt, encrypt } from "../utils/crypto.js";
+
+const SERVICE_NAME = "agenticflow";
+const ACCOUNT_NAME = "master-password";
+
+export async function setMasterPasswordInKeychain(password: string): Promise<void> {
+    const entry = new Entry(SERVICE_NAME, ACCOUNT_NAME);
+    await entry.setPassword(password);
+}
 
 export function loadSecrets(filePath: string, password?: string): Record<string, string> {
     if (!fs.existsSync(filePath)) return {};
@@ -26,7 +35,15 @@ export function saveSecrets(filePath: string, secrets: Record<string, string>, p
 }
 
 export async function getMasterPassword(): Promise<string> {
-    if (process.env.AGENTICFLOW_MASTER_PASSWORD) return process.env.AGENTICFLOW_MASTER_PASSWORD;
+    try {
+        const entry = new Entry(SERVICE_NAME, ACCOUNT_NAME);
+        const password = await entry.getPassword();
+        if (password) return password;
+    } catch (e) {
+        // Key might not exist or keychain is unavailable, proceed to prompt
+    }
+
     const { password } = await inquirer.prompt([{ type: "password", name: "password", message: "Enter Master Password:", mask: "*" }]);
+    await setMasterPasswordInKeychain(password);
     return password;
 }

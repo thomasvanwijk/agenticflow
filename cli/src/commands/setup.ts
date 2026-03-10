@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import { ENV_FILE, DEFAULT_SECRETS_FILE, CONFIG_DIR } from "../config.js";
 import { runShell, runDockerCompose, handleError } from "../utils/shell.js";
 import { generatePassword } from "../utils/crypto.js";
-import { loadSecrets, saveSecrets } from "../services/secrets.js";
+import { loadSecrets, saveSecrets, setMasterPasswordInKeychain, getMasterPassword } from "../services/secrets.js";
 import { waitForGateway } from "../services/gateway.js";
 import { envService } from "../services/env.js";
 
@@ -98,15 +98,14 @@ export async function setupAction(options: any) {
         envVars.POSTGRES_PASSWORD = generatePassword(24);
     }
 
-    if (!envVars.AGENTICFLOW_MASTER_PASSWORD) {
-        if (options.masterPassword) {
-            envVars.AGENTICFLOW_MASTER_PASSWORD = options.masterPassword;
-        } else {
-            const { master } = await inquirer.prompt([{ type: "password", name: "master", message: "Create Master Password:", mask: "*" }]);
-            envVars.AGENTICFLOW_MASTER_PASSWORD = master;
-        }
-        process.env.AGENTICFLOW_MASTER_PASSWORD = envVars.AGENTICFLOW_MASTER_PASSWORD;
+    let masterPwd = "";
+    if (options.masterPassword) {
+        masterPwd = options.masterPassword;
+        await setMasterPasswordInKeychain(masterPwd);
+    } else {
+        masterPwd = await getMasterPassword();
     }
+    delete envVars.AGENTICFLOW_MASTER_PASSWORD;
 
     envService.save(envVars);
 
@@ -147,7 +146,7 @@ export async function setupAction(options: any) {
             { type: "input", name: "ATLASSIAN_EMAIL", message: "Email:" },
             { type: "password", name: "ATLASSIAN_API_TOKEN", message: "Token:", mask: "*" }
         ]);
-        const pwd = envVars.AGENTICFLOW_MASTER_PASSWORD;
+        const pwd = masterPwd;
         const secrets = loadSecrets(DEFAULT_SECRETS_FILE, pwd);
         Object.assign(secrets, atlassianAnswers);
         saveSecrets(DEFAULT_SECRETS_FILE, secrets, pwd);

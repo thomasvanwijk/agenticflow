@@ -17,6 +17,15 @@ vi.mock("../src/config.js", () => ({
 }));
 
 // 3. Mock external dependencies
+vi.mock("@napi-rs/keyring", () => {
+    return {
+        Entry: class {
+            setPassword = vi.fn().mockResolvedValue(undefined);
+            getPassword = vi.fn().mockResolvedValue("test-password");
+        }
+    };
+});
+
 vi.mock("inquirer", () => ({
     default: {
         prompt: vi.fn().mockResolvedValue({ overwrite: true, master: "test-password", doIndex: false })
@@ -90,6 +99,6 @@ describe("CLI Setup Integration", () => {
         const envContents = fs.readFileSync(envFile, "utf8");
         expect(envContents).toContain("VAULT_PATH=");
         expect(envContents).toContain("EMBEDDING_PROVIDER=local");
-        expect(envContents).toContain("AGENTICFLOW_MASTER_PASSWORD=test-password");
+        expect(envContents).not.toContain("AGENTICFLOW_MASTER_PASSWORD");
     });
 });

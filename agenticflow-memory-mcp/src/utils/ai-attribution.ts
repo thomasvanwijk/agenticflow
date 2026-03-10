@@ -140,15 +140,24 @@ export function stringifyWithLinks(content: string, data: Record<string, any>): 
         if (Array.isArray(value)) {
             yaml += `${key}:\n`;
             value.forEach(v => {
-                // JSON.stringify will double-quote strings, which is perfect for Obsidian links
-                yaml += `  - ${JSON.stringify(v)}\n`;
+                let cleanV = v;
+                if (typeof v === "string") {
+                    cleanV = v.replace(/^"(.*)"$/, "$1");
+                }
+                yaml += `  - ${JSON.stringify(cleanV)}\n`;
             });
-        } else if (typeof value === "string" && value.startsWith("[[")) {
-            // Explicitly quote the link
-            yaml += `${key}: "${value}"\n`;
         } else {
-            // Use JSON.stringify for safety on all values (handles spaces and special chars)
-            yaml += `${key}: ${JSON.stringify(value)}\n`;
+            let cleanValue = value;
+            if (typeof value === "string") {
+                cleanValue = value.replace(/^"(.*)"$/, "$1");
+            }
+            if (typeof cleanValue === "string" && cleanValue.startsWith("[[")) {
+                // Explicitly quote the link
+                yaml += `${key}: "${cleanValue}"\n`;
+            } else {
+                // Use JSON.stringify for safety on all values (handles spaces and special chars)
+                yaml += `${key}: ${JSON.stringify(value)}\n`;
+            }
         }
     }
     yaml += "---\n\n";

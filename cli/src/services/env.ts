@@ -20,14 +20,16 @@ class EnvService {
      * Handles quoting for values containing special characters.
      */
     save(vars: Record<string, string | number | boolean>) {
-        const lines = Object.entries(vars).map(([k, v]) => {
-            const strVal = String(v);
-            // Quote if value contains $ or spaces
-            if (strVal.includes("$") || strVal.includes(" ")) {
-                return `${k}='${strVal}'`;
-            }
-            return `${k}=${strVal}`;
-        });
+        const lines = Object.entries(vars)
+            .filter(([k]) => k !== "AGENTICFLOW_MASTER_PASSWORD")
+            .map(([k, v]) => {
+                const strVal = String(v);
+                // Quote if value contains $ or spaces
+                if (strVal.includes("$") || strVal.includes(" ")) {
+                    return `${k}='${strVal}'`;
+                }
+                return `${k}=${strVal}`;
+            });
         fs.writeFileSync(ENV_FILE, lines.join("\n"), "utf8");
     }
 

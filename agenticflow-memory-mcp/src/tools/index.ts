@@ -177,9 +177,9 @@ export function registerTools(server: McpServer) {
             "Create a new Obsidian note with optional frontmatter and content. Fails if the note already exists.",
             {
                 path: z.string().describe("File path relative to vault root, e.g. 'Projects/new-project.md'"),
-                frontmatter: z.record(z.unknown()).optional().describe("Key-value pairs for the note's YAML frontmatter (optional)"),
-                content: z.string().optional().describe("The initial markdown content of the note (optional)"),
-                ai_model: z.string().optional().describe("The AI model creating the note (for attribution)")
+                frontmatter: z.record(z.unknown()).optional().describe("Key-value pairs for the note's YAML frontmatter. For Obsidian wiki-links, provide the unquoted raw string like `[[Note Title]]`; the system will automatically quote it for Obsidian compatibility."),
+                content: z.string().optional().describe("The initial markdown content of the note. IMPORTANT: The system will automatically wrap this content in an AI attribution callout. Do NOT manually wrap your prose."),
+                ai_model: z.string().optional().describe("The true current AI model and version generating this content (e.g., 'Gemini 3.0 Pro' or your actual identity). Do not hallucinate older versions.")
             },
             async ({ path: notePath, frontmatter, content, ai_model }) => {
                 try {
@@ -212,10 +212,11 @@ export function registerTools(server: McpServer) {
             "Completely replace the contents of an existing Obsidian note. This overwrites the entire file.",
             {
                 path: z.string().describe("File path relative to vault root, e.g. 'Projects/project.md'"),
-                content: z.string().describe("The new markdown content (including frontmatter if desired) to replace the file with"),
-                ai_model: z.string().optional().describe("The AI model updating the note (for attribution)")
+                frontmatter: z.record(z.unknown()).optional().describe("Key-value pairs for the note's YAML frontmatter. For Obsidian wiki-links, provide the unquoted raw string like `[[Note Title]]`; the system will automatically quote it for Obsidian compatibility."),
+                content: z.string().describe("The new markdown content (excluding frontmatter) to replace the file with. IMPORTANT: You MUST manually wrap any newly generated prose in `> [!ai]` callouts. The system will NOT automatically wrap the file content."),
+                ai_model: z.string().optional().describe("The true current AI model and version generating this content (e.g., 'Gemini 3.0 Pro' or your actual identity). Do not hallucinate older versions.")
             },
-            async ({ path: notePath, content, ai_model }) => {
+            async ({ path: notePath, frontmatter, content, ai_model }) => {
                 try {
                     const full = path.join(VAULT_PATH, notePath.replace(/^\//, ""));
                     if (!full.startsWith(VAULT_PATH)) {
@@ -225,10 +226,13 @@ export function registerTools(server: McpServer) {
                         return { content: [{ type: "text", text: `Error: Note not found at ${notePath}. Use create_note instead.` }] };
                     }
 
+                    // Since we accept frontmatter as an object now, we merge it directly.
+                    // If the user provided frontmatter in the content string (e.g., via matter), 
+                    // we can optionally parse it, but standard usage should use the parameter.
                     const { data, content: body } = matter(content);
-                    const finalContent = wrapAsAiCallout(body, ai_model);
-                    const finalFrontmatter = mergeFrontmatterWithContributor(data, {}, ai_model);
-                    const fileContent = stringifyWithLinks(finalContent, finalFrontmatter);
+                    const mergedFrontmatter = { ...data, ...(frontmatter || {}) };
+                    const finalFrontmatter = mergeFrontmatterWithContributor(mergedFrontmatter, {}, ai_model);
+                    const fileContent = stringifyWithLinks(body, finalFrontmatter);
 
                     fs.writeFileSync(full, fileContent);
 
@@ -244,9 +248,9 @@ export function registerTools(server: McpServer) {
             "Append content to the end of an existing Obsidian note, optionally under a specific heading.",
             {
                 path: z.string().describe("File path relative to vault root, e.g. 'Projects/project.md'"),
-                content: z.string().describe("Content to append"),
+                content: z.string().describe("Content to append. IMPORTANT: The system will automatically wrap this content in an AI attribution callout. Do NOT manually wrap your prose."),
                 heading: z.string().optional().describe("Optional exact heading (e.g., '## Meeting Notes') to append under. If not found, it appends to the end."),
-                ai_model: z.string().optional().describe("The AI model appending to the note (for attribution)")
+                ai_model: z.string().optional().describe("The true current AI model and version generating this content (e.g., 'Gemini 3.0 Pro' or your actual identity). Do not hallucinate older versions.")
             },
             async ({ path: notePath, content, heading, ai_model }) => {
                 try {

@@ -3,8 +3,15 @@ import { runDockerCompose, runShell, handleError } from "../utils/shell.js";
 import fs from "fs";
 import { ENV_FILE } from "../config.js";
 import inquirer from "inquirer";
+import { getMasterPassword } from "../services/secrets.js";
 
-export function upAction() {
+export async function upAction() {
+    try {
+        process.env.AGENTICFLOW_MASTER_PASSWORD = await getMasterPassword();
+    } catch (err) {
+        console.error("Failed to retrieve master password.");
+        process.exit(1);
+    }
     const spinner = ora("Starting Agenticflow...").start();
     if (runDockerCompose("up -d --remove-orphans", true)) {
         spinner.succeed("Agenticflow is running.");

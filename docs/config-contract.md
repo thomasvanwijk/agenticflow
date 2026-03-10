@@ -10,8 +10,8 @@ The `.env` file is the primary source of truth for runtime configuration and Doc
 - **Key Variables**:
   - `VAULT_PATH`: Absolute path to the Obsidian vault.
   - `EMBEDDING_PROVIDER`: `local`, `ollama`, or `openai`.
-  - `AGENTICFLOW_MASTER_PASSWORD`: Encryption key for `secrets.enc`.
   - `HOST_PORT`: The public port for the MCP gateway (default `18080`).
+  *(Note: `AGENTICFLOW_MASTER_PASSWORD` is securely stored in the host OS native keychain, not in `.env`)*
 
 ## 2. Encrypted Secrets (`config/secrets.enc`)
 Used for sensitive API tokens (e.g., Atlassian) that should not be stored in plain text in `.env`.

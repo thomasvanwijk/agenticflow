@@ -26,6 +26,7 @@ services:
     # The gateway is now shielded by the auth proxy and not exposed to the host directly.
     environment:
       - DATABASE_URL=postgres://agenticflow:${POSTGRES_PASSWORD:-changeme}@postgres:5432/agenticflow
+      - AGENTICFLOW_MASTER_PASSWORD=${AGENTICFLOW_MASTER_PASSWORD:-}
       # Required configuration for remote agent context ingestion (Agenticflow memory system)
       - VAULT_PATH=/vault
       - CHROMA_HOST=chroma
