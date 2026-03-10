@@ -91,7 +91,7 @@ export async function setupAction(options: any) {
         }
     ]);
 
-    envVars.VAULT_PATH = envAnswers.VAULT_PATH;
+    envVars.VAULT_PATH = fs.realpathSync(path.resolve(envAnswers.VAULT_PATH));
     envVars.EMBEDDING_PROVIDER = envAnswers.EMBEDDING_PROVIDER;
 
     if (!envVars.POSTGRES_PASSWORD || envVars.POSTGRES_PASSWORD === "changeme") {
@@ -115,7 +115,7 @@ export async function setupAction(options: any) {
 
     // Handle agenticflow.json move/creation
     const memoryJson = path.join(serversDir, "agenticflow.json");
-    const memoryExample = path.join(CONFIG_DIR, "agenticflow.example.json");
+    const memoryExample = path.join(serversDir, "agenticflow.example.json");
 
     // Also check if it exists in the OLD location and move it if so
     const oldMemoryJson = path.join(CONFIG_DIR, "agenticflow.json");
@@ -126,13 +126,16 @@ export async function setupAction(options: any) {
         fs.copyFileSync(memoryExample, memoryJson);
     }
 
-    // Move example files to servers.d if they are there
-    const exampleFiles = ["agenticflow.example.json", "atlassian.example.json"];
+    // Handle other example files in servers.d
+    const exampleFiles = ["atlassian.example.json"];
     for (const f of exampleFiles) {
-        const src = path.join(CONFIG_DIR, f);
-        const dst = path.join(serversDir, f);
-        if (fs.existsSync(src) && !fs.existsSync(dst)) {
-            fs.renameSync(src, dst);
+        const src = path.join(serversDir, f);
+        const dst = path.join(serversDir, f.replace(".example", ""));
+        // This is just a bootstrap if the destination doesn't exist
+        if (fs.existsSync(src) && !fs.existsSync(dst) && f === "atlassian.example.json") {
+            // We don't necessarily want to auto-create atlassian.json unless asked
+            // but the logic was previously moving files. 
+            // Let's stick to the goal: ensure agenticflow.json exists.
         }
     }
 

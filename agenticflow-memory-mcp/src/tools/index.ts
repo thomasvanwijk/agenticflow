@@ -16,7 +16,7 @@ import { wrapAsAiCallout, mergeFrontmatterWithContributor, addContributorToFront
 const execFileAsync = promisify(execFile);
 
 export function registerTools(server: McpServer) {
-    const role = process.env.AGENTICFLOW_ROLE || "all";
+    const role = process.env.AGENTICFLOW_ROLE || "discovery";
 
     // ─── Memory Role Tools ──────────────────────────────────────────────────
     if (role === "memory" || role === "all") {
@@ -340,7 +340,7 @@ export function registerTools(server: McpServer) {
             async () => {
                 try {
                     const collection = await getCollection("mcp_tools");
-                    
+
                     // 1. Get ALL external tools from MCPJungle (includes obsidian when it is registered)
                     let tools: Array<{ name: string; description: string }> = [];
                     try {

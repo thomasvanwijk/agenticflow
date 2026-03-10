@@ -1,12 +1,13 @@
 {
     "name": "agenticflow",
     "transport": "stdio",
-    "description": "Agenticflow — semantic memory, tool discovery and execution for your Obsidian vault and integrations",
+    "description": "Agenticflow — semantic memory, tool discovery and execution. Default role is 'discovery' (3 tools). Set AGENTICFLOW_ROLE to 'all' in env to expose all 11 tools directly if your LLM struggles with discovery.",
     "command": "node",
     "args": [
         "/app/agenticflow-memory-mcp/dist/index.js"
     ],
     "env": {
+        "AGENTICFLOW_ROLE": "discovery",
         "VAULT_PATH": "/vault",
         "CHROMA_HOST": "chroma",
         "CHROMA_PORT": "8000",
