@@ -9,8 +9,22 @@ const SERVICE_NAME = "agenticflow";
 const ACCOUNT_NAME = "master-password";
 
 export async function setMasterPasswordInKeychain(password: string): Promise<void> {
-    const entry = new Entry(SERVICE_NAME, ACCOUNT_NAME);
-    await entry.setPassword(password);
+    try {
+        const entry = new Entry(SERVICE_NAME, ACCOUNT_NAME);
+        await entry.setPassword(password);
+    } catch (e) {
+        console.warn("\n⚠️  Warning: OS Keychain unavailable. Master password will not be persisted across CLI sessions.");
+        if (process.platform === 'linux') {
+            console.warn("   To fix this on Linux, you can install a secret service daemon like gnome-keyring:");
+            console.warn("   Debian/Ubuntu: sudo apt-get install gnome-keyring libsecret-1-0");
+            console.warn("   Arch/Manjaro: sudo pacman -S gnome-keyring libsecret");
+        } else if (process.platform === 'win32') {
+            console.warn("   To fix this on Windows, ensure the Credential Manager service is running.");
+        } else if (process.platform === 'darwin') {
+            console.warn("   To fix this on macOS, ensure your user has access to the login keychain.");
+        }
+        console.warn("");
+    }
 }
 
 export function loadSecrets(filePath: string, password?: string): Record<string, string> {
