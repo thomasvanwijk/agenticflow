@@ -4,7 +4,7 @@ import { Command } from "commander";
 import { setupAction } from "./commands/setup.js";
 import { upAction, downAction, uninstallAction } from "./commands/lifecycle.js";
 import { embeddingAction } from "./commands/embedding.js";
-import { setSecretAction, getSecretAction, listSecretsAction, injectSecretsAction } from "./commands/secrets.js";
+import { setSecretAction, getSecretAction, listSecretsAction, exportSecretsAction } from "./commands/secrets.js";
 import { addMcpAction, listMcpAction, removeMcpAction } from "./commands/mcp.js";
 import { DEFAULT_SECRETS_FILE } from "./config.js";
 
@@ -57,10 +57,14 @@ mcpCmd
     });
 
 const secretsCmd = program.command("secrets").description("Manage secrets");
-secretsCmd.command("set <key> [value]").option("-f, --file <path>", "File", DEFAULT_SECRETS_FILE).action(setSecretAction);
-secretsCmd.command("get <key>").option("-f, --file <path>", "File", DEFAULT_SECRETS_FILE).action(getSecretAction);
-secretsCmd.command("list").option("-f, --file <path>", "File", DEFAULT_SECRETS_FILE).action(listSecretsAction);
-secretsCmd.command("inject").option("-f, --file <path>", "File", DEFAULT_SECRETS_FILE).action(injectSecretsAction);
+secretsCmd.command("set <key> [value]").option("-f, --file <path>", "File", DEFAULT_SECRETS_FILE).option("-m, --mcp <name>", "Scope to a specific MCP server").action(setSecretAction);
+secretsCmd.command("get <key>").option("-f, --file <path>", "File", DEFAULT_SECRETS_FILE).option("-m, --mcp <name>", "Scope to a specific MCP server").action(getSecretAction);
+secretsCmd.command("list").option("-f, --file <path>", "File", DEFAULT_SECRETS_FILE).option("-m, --mcp <name>", "Scope to a specific MCP server").action(listSecretsAction);
+secretsCmd
+    .command("export")
+    .description("Decrypt secrets.enc and emit shell export statements to stdout (used by gateway entrypoint)")
+    .option("-f, --file <path>", "Secrets file", DEFAULT_SECRETS_FILE)
+    .action(exportSecretsAction);
 
 program
     .command("uninstall")

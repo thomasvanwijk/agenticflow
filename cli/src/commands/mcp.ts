@@ -3,7 +3,7 @@ import path from "path";
 import inquirer from "inquirer";
 import { CONFIG_DIR, DEFAULT_SECRETS_FILE } from "../config.js";
 import { loadSecrets, saveSecrets, getMasterPassword } from "../services/secrets.js";
-import { injectSecretsToFile } from "./secrets.js";
+// Secret injection is now handled in-memory by the sync-controller (no file writes)
 import { runShell, runShellWithOutput } from "../utils/shell.js";
 import ora from "ora";
 
@@ -201,7 +201,9 @@ export async function addMcpAction(nameArg: string | undefined, options: { comma
     const envMap: Record<string, string> = {};
 
     for (const { key, value } of envEntries) {
-        const secretKey = `MCP_${name!.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_${key.toUpperCase()}`;
+        const cleanName = name!.replace(/-mcp$/i, "").toUpperCase().replace(/[^A-Z0-9]/g, "_");
+        const cleanKey = key.toUpperCase().replace(new RegExp(`^${cleanName}_`, "i"), "");
+        const secretKey = `MCP_${cleanName}_${cleanKey}`;
         secrets[secretKey] = value;
         envMap[key] = `\${${secretKey}}`;
     }

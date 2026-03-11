@@ -15,6 +15,8 @@ import { wrapAsAiCallout, mergeFrontmatterWithContributor, addContributorToFront
 
 const execFileAsync = promisify(execFile);
 
+const META_TOOLS = new Set(["agenticflow__discover_tools", "agenticflow__call_tool", "agenticflow__refresh_tool_index"]);
+
 export function registerTools(server: McpServer) {
     const role = process.env.AGENTICFLOW_ROLE || "discovery";
 
@@ -364,6 +366,7 @@ export function registerTools(server: McpServer) {
                     // 3. Index all tools
                     let indexed = 0;
                     for (const tool of tools) {
+                        if (META_TOOLS.has(tool.name)) continue;
                         const textToEmbed = `${tool.name}: ${tool.description}`;
                         const embedding = await generateEmbedding(textToEmbed);
                         await collection.upsert({

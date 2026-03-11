@@ -2,8 +2,7 @@
 .env
 config/config.yaml
 config/servers.yaml
-config/**/*.json
-!config/**/*.example.json
+# servers.d/*.json files only contain ${VAR} placeholders — safe to commit
 config/secrets.enc
 
 # Node

@@ -1,81 +1,123 @@
 import fs from "fs";
 import path from "path";
 import inquirer from "inquirer";
-import { DEFAULT_SECRETS_FILE, CONFIG_DIR } from "../config.js";
+import { DEFAULT_SECRETS_FILE } from "../config.js";
 import { loadSecrets, saveSecrets, getMasterPassword } from "../services/secrets.js";
 
+/**
+ * Helper to generate a consistent MCP secret key based on the naming convention:
+ * MCP_<SERVERNAME>_<VARNAME>
+ */
+function getMcpSecretKey(mcpName: string, key: string): string {
+    const cleanName = mcpName.replace(/-mcp$/i, "").toUpperCase().replace(/[^A-Z0-9]/g, "_");
+    const cleanKey = key.toUpperCase().replace(new RegExp(`^${cleanName}_`, "i"), "");
+    return `MCP_${cleanName}_${cleanKey}`;
+}
+
 export async function setSecretAction(key: string, value: string | undefined, options: any) {
+    let targetKey = key;
+    const mcpName = options.mcp;
+
+    if (mcpName) {
+        // Validation: Ensure the MCP is actually installed
+        const { getServersDir } = await import("./mcp.js");
+        const mcpPath = path.join(getServersDir(), `${mcpName}.json`);
+        if (!fs.existsSync(mcpPath)) {
+            console.error(`\n❌ Error: Variable could not be saved because MCP server '${mcpName}' is not installed.`);
+            console.log(`💡 Tip: Check for typos or add the server first with: 'agenticflow mcp add ${mcpName}'\n`);
+            return;
+        }
+
+        targetKey = getMcpSecretKey(mcpName, key);
+        console.log(`Scoped to MCP '${mcpName}' → ${targetKey}`);
+    }
+
     let secretValue = value;
     if (!secretValue) {
-        const a = await inquirer.prompt([{ type: "password", name: "s", message: `Value for ${key}:`, mask: "*" }]);
+        const a = await inquirer.prompt([{ type: "password", name: "s", message: `Value for ${targetKey}:`, mask: "*" }]);
         secretValue = a.s;
     }
+
     const pwd = await getMasterPassword();
     const secrets = loadSecrets(options.file || DEFAULT_SECRETS_FILE, pwd);
-    secrets[key] = secretValue!;
+    secrets[targetKey] = secretValue!;
     saveSecrets(options.file || DEFAULT_SECRETS_FILE, secrets, pwd);
-    console.log(`Secret '${key}' saved.`);
+    console.log(`Secret '${targetKey}' saved.`);
 
     const { sync } = await inquirer.prompt([
         {
             type: "confirm",
             name: "sync",
-            message: "Would you like to synchronize and apply these secrets to your MCP configurations now?",
+            message: "Would you like to apply these changes to your running gateway now?\n  ℹ️  This triggers a live reload — no restart needed.",
             default: true
         }
     ]);
 
     if (sync) {
-        await syncAllConfigs();
+        await touchSecretsFile(options.file || DEFAULT_SECRETS_FILE);
     }
 }
 
 export async function getSecretAction(key: string, options: any) {
+    let targetKey = key;
+    if (options.mcp) {
+        targetKey = getMcpSecretKey(options.mcp, key);
+    }
+
     const pwd = await getMasterPassword();
     const secrets = loadSecrets(options.file || DEFAULT_SECRETS_FILE, pwd);
-    if (key in secrets) console.log(secrets[key]);
-    else console.error(`Not found.`);
+    if (targetKey in secrets) {
+        if (options.mcp) console.log(`${targetKey}=${secrets[targetKey]}`);
+        else console.log(secrets[targetKey]);
+    } else {
+        console.error(`Secret '${targetKey}' not found.`);
+    }
 }
 
 export async function listSecretsAction(options: any) {
     const pwd = await getMasterPassword();
     const secrets = loadSecrets(options.file || DEFAULT_SECRETS_FILE, pwd);
-    Object.keys(secrets).forEach(k => console.log(` - ${k}`));
-}
+    
+    let keys = Object.keys(secrets);
+    const mcpName = options.mcp;
 
-export function injectContent(content: string, secrets: Record<string, string>): string {
-    return content.replace(/\$\{([A-Z0-9_]+)\}|\{\{([A-Z0-9_]+)\}\}/gi, (m, g1, g2) => secrets[g1 || g2] || process.env[g1 || g2] || m);
-}
-
-export function injectSecretsToFile(filePath: string, secrets: Record<string, string>, outPath: string) {
-    const content = fs.readFileSync(filePath, "utf8");
-    const injected = injectContent(content, secrets);
-    fs.writeFileSync(outPath, injected);
-}
-
-export async function syncAllConfigs() {
-    const pwd = await getMasterPassword();
-    const secrets = loadSecrets(DEFAULT_SECRETS_FILE, pwd);
-
-    // Scan both base config and servers.d for templates
-    const searchDirs = [CONFIG_DIR, path.join(CONFIG_DIR, "servers.d")];
-
-    for (const dir of searchDirs) {
-        if (!fs.existsSync(dir)) continue;
-
-        const files = fs.readdirSync(dir);
-        for (const file of files) {
-            if (!file.includes(".example.")) continue;
-
-            const filePath = path.join(dir, file);
-            const outPath = path.join(dir, file.replace(".example.", "."));
-            injectSecretsToFile(filePath, secrets, outPath);
-            console.log(`Injected ${outPath}`);
-        }
+    if (mcpName) {
+        const prefix = getMcpSecretKey(mcpName, "").replace(/_$/, ""); // e.g. MCP_ATLASSIAN
+        keys = keys.filter(k => k.startsWith(prefix + "_"));
+        console.log(`Secrets for MCP '${mcpName}':`);
+        keys.forEach(k => {
+            const shortKey = k.replace(prefix + "_", "");
+            console.log(` - ${shortKey} (${k})`);
+        });
+    } else {
+        console.log("Global Secrets:");
+        keys.forEach(k => console.log(` - ${k}`));
     }
-    console.log("✅ All configurations synchronized.");
 }
 
-export async function injectSecretsAction(options: any) {
-    await syncAllConfigs();
+/**
+ * Decrypts secrets.enc and emits shell `export KEY='VALUE'` statements to stdout.
+ * Consumed by the gateway entrypoint via:
+ *   eval "$(agenticflow secrets export --file /path/to/secrets.enc)"
+ */
+export async function exportSecretsAction(options: any) {
+    const pwd = process.env.AGENTICFLOW_MASTER_PASSWORD || await getMasterPassword();
+    const secrets = loadSecrets(options.file || DEFAULT_SECRETS_FILE, pwd);
+    for (const [key, value] of Object.entries(secrets)) {
+        const escaped = value.replace(/'/g, "'\\''");
+        process.stdout.write(`export ${key}='${escaped}'\n`);
+    }
+}
+
+/**
+ * Touch secrets.enc to trigger the chokidar watcher in the sync-controller for hot-reload.
+ */
+async function touchSecretsFile(filePath: string) {
+    if (fs.existsSync(filePath)) {
+        const now = new Date();
+        fs.utimesSync(filePath, now, now);
+        console.log("✅ Gateway notified. Updated secrets will be applied within a few seconds.");
+    } else {
+        console.warn("⚠️  secrets.enc not found — gateway could not be notified.");
+    }
 }
