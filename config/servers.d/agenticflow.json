@@ -11,7 +11,10 @@
         "VAULT_PATH": "/vault",
         "CHROMA_HOST": "chroma",
         "CHROMA_PORT": "8000",
-        "OLLAMA_BASE_URL": "http://host.docker.internal:11434"
+        "OLLAMA_BASE_URL": "http://host.docker.internal:11434",
+        "ai_attribution_enabled": "true",
+        "ai_attribution_include_model": "true",
+        "ai_attribution_include_date": "true"
     },
     "session_mode": "stateful"
 }
