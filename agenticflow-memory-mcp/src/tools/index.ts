@@ -387,10 +387,16 @@ export function registerTools(server: McpServer) {
 
         server.tool(
             "call_tool",
-            "Execute a specific MCP tool by name. Use discover_tools first to find the right tool name, then call it here. This works for all tools including Jira, Confluence, and other integrations.",
+            "Execute a specific MCP tool by name. Use discover_tools first to find the right tool name, then call it here. This works for all tools including Jira, Confluence, and other integrations. CRITICAL: Do NOT flatten arguments! All tool parameters MUST be structured as a JSON object inside the 'input' argument. For example, if a tool takes 'path' and 'content', you must pass { \"tool_name\": \"...\", \"input\": { \"path\": \"...\", \"content\": \"...\" } }, NOT { \"tool_name\": \"...\", \"path\": \"...\", \"content\": \"...\" }.",
             {
                 tool_name: z.string().describe("The exact tool name to call (e.g., 'atlassian__search_jira_issues')"),
-                input: z.record(z.unknown()).optional().default({}).describe("JSON input parameters for the tool"),
+                input: z.preprocess((val) => {
+                    if (typeof val === 'string') {
+                        try { return JSON.parse(val); } catch (e) { return {}; }
+                    }
+                    if (val === null) return {};
+                    return val;
+                }, z.record(z.unknown()).optional().default({})).describe("JSON input parameters for the tool. IMPORTANT: This MUST be a nested JSON object containing the tool's parameters. Do NOT place tool parameters alongside tool_name."),
             },
             async ({ tool_name, input }) => {
                 try {
