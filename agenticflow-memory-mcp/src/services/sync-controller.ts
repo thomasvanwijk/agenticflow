@@ -164,8 +164,18 @@ async function registerOrUpdateServer(name: string, config: any, currentServers:
     try {
         if (currentServers.has(name)) {
             logger.info(`Config changed or missing in registry. Updating existing server: ${name}`, "sync-controller");
-            // We no longer explicitly deregister here to avoid creating an exposure window.
-            // MCPJungle handles the update atomically via the POST endpoint.
+            // To avoid deadlocks and duplicate key errors in MCPJungle, 
+            // we perform an explicit DELETE before the fresh POST.
+            try {
+                const delRes = await fetch(`${REGISTRY}/api/v0/servers/${name}`, {
+                    method: "DELETE"
+                });
+                if (!delRes.ok && delRes.status !== 404) {
+                    logger.warn(`Failed to deregister ${name} before update: ${delRes.statusText}`, "sync-controller");
+                }
+            } catch (e) {
+                logger.warn(`Error during pre-update deregistration of ${name}`, "sync-controller", { error: String(e) });
+            }
         } else {
             logger.info(`Registering new server: ${name}`, "sync-controller");
         }
@@ -174,7 +184,7 @@ async function registerOrUpdateServer(name: string, config: any, currentServers:
         const resolvedConfig = resolveEnvVars(config, process.env as any);
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 300000); // 300s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // Reduce timeout to 60s for faster failure recovery
 
         const postRes = await fetch(`${REGISTRY}/api/v0/servers`, {
             method: "POST",
@@ -221,12 +231,8 @@ async function enforceExposureState(name: string, shouldExpose: boolean) {
  */
 async function enforceExistingRegistryState(currentServers: Set<string>) {
     for (const name of currentServers) {
-        if (name === "agenticflow") {
-            await enforceExposureState(name, true);
-        } else {
-            // Conservative: hide anything in registry that we haven't processed yet
-            await enforceExposureState(name, false);
-        }
+        // Conservative: hide anything in registry that we haven't processed yet
+        await enforceExposureState(name, false);
     }
 }
 

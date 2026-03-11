@@ -7,7 +7,7 @@ import { promisify } from "util";
 import { VAULT_PATH } from "../config.js";
 import { getCollection } from "../services/chroma.js";
 import { generateEmbedding } from "../providers/index.js";
-import { walkVault, readNote } from "../services/vault.js";
+import { walkVault, readNote, resolveFuzzyPath } from "../services/vault.js";
 import { indexVault } from "../services/indexer.js";
 import { logger, toolError } from "../utils/logger.js";
 import matter from "gray-matter";
@@ -148,17 +148,21 @@ export function registerTools(server: McpServer) {
 
         server.tool(
             "get_note",
-            "Read a specific Obsidian note by its path (relative to vault root).",
-            { path: z.string().describe("File path relative to vault root, e.g. 'Projects/agenticflow.md'") },
+            "Read a specific Obsidian note by its path or filename. Fuzzy matches if exact path is omitted.",
+            { path: z.string().describe("File path or filename, e.g. 'Projects/agenticflow.md' or just 'agenticflow'") },
             async ({ path: notePath }) => {
-                const full = path.join(VAULT_PATH, notePath.replace(/^\//, ""));
-                if (!full.startsWith(VAULT_PATH)) {
-                    return { content: [{ type: "text", text: "Access denied: path traversal not allowed." }] };
-                }
-                if (!fs.existsSync(full)) {
+                const resolution = resolveFuzzyPath(VAULT_PATH, notePath);
+                
+                if (resolution.type === "not_found") {
                     return { content: [{ type: "text", text: `Note not found: ${notePath}` }] };
                 }
+                
+                if (resolution.type === "multiple") {
+                    const optionsList = resolution.options.map(o => `- ${o}`).join("\n");
+                    return { content: [{ type: "text", text: `Multiple notes found matching '${notePath}'. Please specify the exact path:\n${optionsList}` }] };
+                }
 
+                const full = resolution.path;
                 const { content, data } = readNote(full);
                 const stat = fs.statSync(full);
                 const meta = Object.keys(data).length
@@ -168,7 +172,7 @@ export function registerTools(server: McpServer) {
                 return {
                     content: [{
                         type: "text",
-                        text: `# ${data.title || path.basename(notePath, ".md")}\n_Modified: ${new Date(stat.mtimeMs).toISOString()}_\n\n${meta}${content}`,
+                        text: `# ${data.title || path.basename(full, ".md")}\n_Modified: ${new Date(stat.mtimeMs).toISOString()}_\n\n${meta}${content}`,
                     }],
                 };
             }
@@ -178,19 +182,22 @@ export function registerTools(server: McpServer) {
             "create_note",
             "Create a new Obsidian note with optional frontmatter and content. Fails if the note already exists.",
             {
-                path: z.string().min(1).describe("REQUIRED: File path relative to vault root, e.g. 'Projects/new-project.md'"),
+                path: z.string().min(1).describe("REQUIRED: File path relative to vault root. You can provide just a filename (e.g. 'Meeting') or a full path (e.g. 'Inbox/Meeting.md'). The .md extension will be added automatically if omitted."),
                 frontmatter: z.record(z.unknown()).optional().describe("Key-value pairs for the note's YAML frontmatter. For Obsidian wiki-links, provide the unquoted raw string like `[[Note Title]]`; the system will automatically quote it for Obsidian compatibility."),
                 content: z.string().optional().describe("The initial markdown content of the note. IMPORTANT: The system will automatically wrap this content in an AI attribution callout. Do NOT manually wrap your prose."),
                 ai_model: z.string().optional().describe("The true current AI model and version generating this content (e.g., 'Gemini 3.0 Pro' or your actual identity). Do not hallucinate older versions.")
             },
             async ({ path: notePath, frontmatter, content, ai_model }) => {
                 try {
-                    const full = path.join(VAULT_PATH, notePath.replace(/^\//, ""));
+                    // Normalize path: ensure .md extension
+                    const normalizedPath = notePath.endsWith(".md") ? notePath : `${notePath}.md`;
+                    const full = path.join(VAULT_PATH, normalizedPath.replace(/^\//, ""));
+                    
                     if (!full.startsWith(VAULT_PATH)) {
                         return { content: [{ type: "text", text: "Access denied: path traversal not allowed." }] };
                     }
                     if (fs.existsSync(full)) {
-                        return { content: [{ type: "text", text: `Error: Note already exists at ${notePath}. Use update_note instead.` }] };
+                        return { content: [{ type: "text", text: `Error: Note already exists at ${normalizedPath}. Use update_note instead.` }] };
                     }
 
                     const dir = path.dirname(full);
@@ -202,7 +209,7 @@ export function registerTools(server: McpServer) {
 
                     fs.writeFileSync(full, fileContent);
 
-                    return { content: [{ type: "text", text: `Successfully created note at: ${notePath}` }] };
+                    return { content: [{ type: "text", text: `Successfully created note at: ${normalizedPath}` }] };
                 } catch (err) {
                     return toolError("create_note", err);
                 }
@@ -211,22 +218,24 @@ export function registerTools(server: McpServer) {
 
         server.tool(
             "update_note",
-            "Completely replace the contents of an existing Obsidian note. This overwrites the entire file.",
+            "Completely replace the contents of an existing Obsidian note. This overwrites the entire file. Fuzzy matches if exact path is omitted.",
             {
-                path: z.string().describe("File path relative to vault root, e.g. 'Projects/project.md'"),
+                path: z.string().describe("File path or filename, e.g. 'Projects/project.md' or just 'project'"),
                 frontmatter: z.record(z.unknown()).optional().describe("Key-value pairs for the note's YAML frontmatter. For Obsidian wiki-links, provide the unquoted raw string like `[[Note Title]]`; the system will automatically quote it for Obsidian compatibility."),
                 content: z.string().describe("The new markdown content (excluding frontmatter) to replace the file with. IMPORTANT: You MUST manually wrap any newly generated prose in `> [!ai]` callouts. The system will NOT automatically wrap the file content."),
                 ai_model: z.string().optional().describe("The true current AI model and version generating this content (e.g., 'Gemini 3.0 Pro' or your actual identity). Do not hallucinate older versions.")
             },
             async ({ path: notePath, frontmatter, content, ai_model }) => {
                 try {
-                    const full = path.join(VAULT_PATH, notePath.replace(/^\//, ""));
-                    if (!full.startsWith(VAULT_PATH)) {
-                        return { content: [{ type: "text", text: "Access denied: path traversal not allowed." }] };
-                    }
-                    if (!fs.existsSync(full)) {
+                    const resolution = resolveFuzzyPath(VAULT_PATH, notePath);
+                    if (resolution.type === "not_found") {
                         return { content: [{ type: "text", text: `Error: Note not found at ${notePath}. Use create_note instead.` }] };
                     }
+                    if (resolution.type === "multiple") {
+                        const optionsList = resolution.options.map(o => `- ${o}`).join("\n");
+                        return { content: [{ type: "text", text: `Multiple notes found matching '${notePath}'. Please specify the exact path to update:\n${optionsList}` }] };
+                    }
+                    const full = resolution.path;
 
                     // Since we accept frontmatter as an object now, we merge it directly.
                     // If the user provided frontmatter in the content string (e.g., via matter), 
@@ -238,7 +247,8 @@ export function registerTools(server: McpServer) {
 
                     fs.writeFileSync(full, fileContent);
 
-                    return { content: [{ type: "text", text: `Successfully updated note at: ${notePath}` }] };
+                    const relPath = path.relative(VAULT_PATH, full);
+                    return { content: [{ type: "text", text: `Successfully updated note at: ${relPath}` }] };
                 } catch (err) {
                     return toolError("update_note", err);
                 }
@@ -247,22 +257,24 @@ export function registerTools(server: McpServer) {
 
         server.tool(
             "append_to_note",
-            "Append content to the end of an existing Obsidian note, optionally under a specific heading.",
+            "Append content to the end of an existing Obsidian note, optionally under a specific heading. Fuzzy matches if exact path is omitted.",
             {
-                path: z.string().describe("File path relative to vault root, e.g. 'Projects/project.md'"),
+                path: z.string().describe("File path or filename, e.g. 'Projects/project.md' or just 'project'"),
                 content: z.string().describe("Content to append. IMPORTANT: The system will automatically wrap this content in an AI attribution callout. Do NOT manually wrap your prose."),
                 heading: z.string().optional().describe("Optional exact heading (e.g., '## Meeting Notes') to append under. If not found, it appends to the end."),
                 ai_model: z.string().optional().describe("The true current AI model and version generating this content (e.g., 'Gemini 3.0 Pro' or your actual identity). Do not hallucinate older versions.")
             },
             async ({ path: notePath, content, heading, ai_model }) => {
                 try {
-                    const full = path.join(VAULT_PATH, notePath.replace(/^\//, ""));
-                    if (!full.startsWith(VAULT_PATH)) {
-                        return { content: [{ type: "text", text: "Access denied: path traversal not allowed." }] };
-                    }
-                    if (!fs.existsSync(full)) {
+                    const resolution = resolveFuzzyPath(VAULT_PATH, notePath);
+                    if (resolution.type === "not_found") {
                         return { content: [{ type: "text", text: `Error: Note not found at ${notePath}.` }] };
                     }
+                    if (resolution.type === "multiple") {
+                        const optionsList = resolution.options.map(o => `- ${o}`).join("\n");
+                        return { content: [{ type: "text", text: `Multiple notes found matching '${notePath}'. Please specify the exact path to append to:\n${optionsList}` }] };
+                    }
+                    const full = resolution.path;
 
                     let fileContent = fs.readFileSync(full, "utf-8");
                     const wrappedContent = wrapAsAiCallout(content, ai_model);
@@ -288,14 +300,16 @@ export function registerTools(server: McpServer) {
                             fileContent = lines.join("\n");
                             fileContent = addContributorToFrontmatter(fileContent, ai_model);
                             fs.writeFileSync(full, fileContent);
-                            return { content: [{ type: "text", text: `Successfully appended to note at: ${notePath} under heading '${heading}'` }] };
+                            const relPath = path.relative(VAULT_PATH, full);
+                            return { content: [{ type: "text", text: `Successfully appended to note at: ${relPath} under heading '${heading}'` }] };
                         }
                     }
 
                     fileContent = fileContent.trimEnd() + "\n\n" + wrappedContent + "\n";
                     fileContent = addContributorToFrontmatter(fileContent, ai_model);
                     fs.writeFileSync(full, fileContent);
-                    return { content: [{ type: "text", text: `Successfully appended to the end of note at: ${notePath}` }] };
+                    const relPath = path.relative(VAULT_PATH, full);
+                    return { content: [{ type: "text", text: `Successfully appended to the end of note at: ${relPath}` }] };
 
                 } catch (err) {
                     return toolError("append_to_note", err);
@@ -390,18 +404,21 @@ export function registerTools(server: McpServer) {
             "Execute a specific MCP tool by name. Use discover_tools first to find the right tool name, then call it here. This works for all tools including Jira, Confluence, and other integrations. CRITICAL: Do NOT flatten arguments! All tool parameters MUST be structured as a JSON object inside the 'input' argument. For example, if a tool takes 'path' and 'content', you must pass { \"tool_name\": \"...\", \"input\": { \"path\": \"...\", \"content\": \"...\" } }, NOT { \"tool_name\": \"...\", \"path\": \"...\", \"content\": \"...\" }.",
             {
                 tool_name: z.string().describe("The exact tool name to call (e.g., 'atlassian__search_jira_issues')"),
-                input: z.preprocess((val) => {
-                    if (typeof val === 'string') {
-                        try { return JSON.parse(val); } catch (e) { return {}; }
-                    }
-                    if (val === null) return {};
-                    return val;
-                }, z.record(z.unknown()).optional().default({})).describe("JSON input parameters for the tool. IMPORTANT: This MUST be a nested JSON object containing the tool's parameters. Do NOT place tool parameters alongside tool_name."),
+                input: z.record(z.unknown()).optional().describe("JSON input parameters for the tool. IMPORTANT: This MUST be a nested JSON object containing the tool's parameters. Do NOT place tool parameters alongside tool_name."),
             },
-            async ({ tool_name, input }) => {
+            async ({ tool_name, ...rest }) => {
+                let input = (rest as any).input;
+                // Manually recreate the preprocess step to avoid SDK schema generation crashes
+                if (typeof input === 'string') {
+                    try { input = JSON.parse(input); } catch (e) { input = {}; }
+                }
+                if (input === null || input === undefined) { input = {}; }
+
                 try {
+                    logger.debug(`Executing call_tool`, "tools", { tool_name, input });
                     // Always use mcpjungle invoke to maintain consistent orchestration
                     const inputJson = JSON.stringify(input ?? {});
+                    logger.debug(`Serialized input`, "tools", { inputJson });
                     const { stdout, stderr } = await execFileAsync(
                         "mcpjungle",
                         ["invoke", tool_name, "--input", inputJson, "--registry", "http://127.0.0.1:8080"],
@@ -415,9 +432,11 @@ export function registerTools(server: McpServer) {
 
                     return { content: [{ type: "text", text: output }] };
                 } catch (err) {
+                    logger.error(`call_tool failed`, "tools", { tool_name, input, error: String(err) });
                     return toolError("call_tool", err, "Verify the tool name is correct using discover_tools.");
                 }
             }
         );
+
     }
 }

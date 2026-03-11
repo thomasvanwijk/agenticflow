@@ -6,7 +6,7 @@ const configSchema = z.object({
     VAULT_PATH: z.string().default("/vault"),
     CHROMA_HOST: z.string().default("localhost"),
     CHROMA_PORT: z.string().default("8000"),
-    EMBEDDING_PROVIDER: z.enum(["ollama", "openai", "local"]).default("ollama"),
+    EMBEDDING_PROVIDER: z.enum(["ollama", "openai", "local"]).default("local"),
     EMBEDDING_MODEL: z.string().default("Xenova/jina-embeddings-v2-small-en"),
     OLLAMA_BASE_URL: z.string().url().default("http://host.docker.internal:11434"),
     OPENAI_API_KEY: z.string().optional().default(""),
@@ -44,4 +44,9 @@ export function validateConfig() {
         logger.error("VAULT_PATH does not exist", { path: VAULT_PATH });
         logger.info("Please ensure your vault directory is correctly mounted in docker-compose.yaml");
     }
+    logger.info("AI Attribution config", "config_startup", { 
+        enabled: AI_ATTRIBUTION_ENABLED, 
+        model: AI_ATTRIBUTION_INCLUDE_MODEL, 
+        date: AI_ATTRIBUTION_INCLUDE_DATE 
+    });
 }

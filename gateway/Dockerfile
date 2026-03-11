@@ -60,6 +60,14 @@ RUN apt-get update && apt-get install -y build-essential python3-dev g++ make &&
     sed -i 's/response.data.issues.map/(response.data.issues || []).map/g' /usr/local/lib/node_modules/mcp-atlassian/dist/jira/handlers.js && \
     sed -i "s|/rest/api/3/search|/rest/api/3/search/jql|g" /usr/local/lib/node_modules/mcp-atlassian/dist/jira/handlers.js
 
+# Pre-download embedding models to avoid runtime latency
+COPY gateway/pre-download-models.mjs /app/agenticflow-memory-mcp/pre-download-models.mjs
+RUN cd /app/agenticflow-memory-mcp && \
+    mkdir -p /app/hf-cache && \
+    export TRANSFORMERS_CACHE=/app/hf-cache && \
+    node pre-download-models.mjs && \
+    rm pre-download-models.mjs
+
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s \
     CMD curl -f http://127.0.0.1:8080/health || exit 1

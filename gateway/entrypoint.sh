@@ -27,6 +27,10 @@ else
   echo "[agenticflow] No secrets.enc found. Using config files as-is."
 fi
 
+# ── 1.5 Configure MCPJungle ──────────────────────────────────────────────────
+# Create conf file to silence the registry_url tip
+echo -e "registry_url: http://127.0.0.1:8080" > /root/.mcpjungle.conf
+
 # ── 2. Start MCPJungle in the background ─────────────────────────────────────
 mcpjungle start &
 MCPJUNGLE_PID=$!

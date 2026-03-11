@@ -13,8 +13,8 @@ export class LocalProvider implements EmbeddingProvider {
             if (!LocalProvider.initPromise) {
                 LocalProvider.initPromise = (async () => {
                     const { pipeline, env } = await import("@huggingface/transformers");
-                    // Cache models in a writable directory inside the container
-                    env.cacheDir = "/tmp/hf-cache";
+                    // Use the pre-downloaded cache in the container
+                    env.cacheDir = process.env.TRANSFORMERS_CACHE || "/app/hf-cache";
                     const model = EMBEDDING_MODEL !== "nomic-embed-text" ? EMBEDDING_MODEL : "Xenova/all-MiniLM-L6-v2";
                     logger.info("Loading local embedding model", { model });
                     // onnxruntime-node (native binary, glibc-dependent) is replaced with onnxruntime-web

@@ -14,6 +14,7 @@
 - **Obsidian memory** — semantic search and time-based retrieval over your personal knowledge vault
 - **Skill/tool discovery** — agents find the right tool by describing intent, not by knowing tool names
 - **Plug-and-play** — add new services without reconfiguring your AI client
+- **Model Compatibility** — [Insights on how different LLMs (Claude, GPT, Gemini, Sonar) behave with agenticflow tools](docs/MODEL_COMPATIBILITY.md)
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for current development priorities and vision.
 

@@ -22,11 +22,25 @@ const server = new McpServer({
 // Register all tools
 registerTools(server);
 
-// Start background services
-startAutoIndexer();
+// Start background services (await to ensure they are ready)
+await startAutoIndexer();
 
 // Connect transport
 const transport = new StdioServerTransport();
 await server.connect(transport);
 
 logger.info("Memory MCP server started successfully", "server_startup");
+
+// Keep the process alive
+const keepAlive = setInterval(() => {}, 1000 * 60 * 60);
+
+process.on("SIGINT", async () => {
+  clearInterval(keepAlive);
+  await server.close();
+  process.exit(0);
+});
+process.on("SIGTERM", async () => {
+  clearInterval(keepAlive);
+  await server.close();
+  process.exit(0);
+});

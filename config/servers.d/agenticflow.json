@@ -8,6 +8,7 @@
     ],
     "env": {
         "AGENTICFLOW_ROLE": "discovery",
+        "EMBEDDING_PROVIDER": "local",
         "VAULT_PATH": "/vault",
         "CHROMA_HOST": "chroma",
         "CHROMA_PORT": "8000",
