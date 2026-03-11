@@ -11,10 +11,10 @@ const configSchema = z.object({
     OLLAMA_BASE_URL: z.string().url().default("http://host.docker.internal:11434"),
     OPENAI_API_KEY: z.string().optional().default(""),
     LOG_LEVEL: z.enum(["DEBUG", "INFO", "WARN", "ERROR"]).default("INFO"),
-    ai_attribution_enabled: z.preprocess((v) => v === "true" || v === true, z.boolean()).default(false),
-    ai_attribution_callout_type: z.string().default("ai"),
-    ai_attribution_include_model: z.preprocess((v) => v === "true" || v === true, z.boolean()).default(true),
-    ai_attribution_include_date: z.preprocess((v) => v === "true" || v === true, z.boolean()).default(true),
+    AI_ATTRIBUTION_ENABLED: z.preprocess((v) => v === "true" || v === true, z.boolean()).default(false),
+    AI_ATTRIBUTION_CALLOUT_TYPE: z.string().default("ai"),
+    AI_ATTRIBUTION_INCLUDE_MODEL: z.preprocess((v) => v === "true" || v === true, z.boolean()).default(true),
+    AI_ATTRIBUTION_INCLUDE_DATE: z.preprocess((v) => v === "true" || v === true, z.boolean()).default(true),
 });
 
 const parsed = configSchema.safeParse(process.env);
@@ -33,10 +33,10 @@ if (!parsed.success) {
     OLLAMA_BASE_URL,
     OPENAI_API_KEY,
     LOG_LEVEL,
-    ai_attribution_enabled,
-    ai_attribution_callout_type,
-    ai_attribution_include_model,
-    ai_attribution_include_date,
+    AI_ATTRIBUTION_ENABLED,
+    AI_ATTRIBUTION_CALLOUT_TYPE,
+    AI_ATTRIBUTION_INCLUDE_MODEL,
+    AI_ATTRIBUTION_INCLUDE_DATE,
 } = parsed.data;
 
 export function validateConfig() {

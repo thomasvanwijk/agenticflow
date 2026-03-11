@@ -178,7 +178,7 @@ export function registerTools(server: McpServer) {
             "create_note",
             "Create a new Obsidian note with optional frontmatter and content. Fails if the note already exists.",
             {
-                path: z.string().describe("File path relative to vault root, e.g. 'Projects/new-project.md'"),
+                path: z.string().min(1).describe("REQUIRED: File path relative to vault root, e.g. 'Projects/new-project.md'"),
                 frontmatter: z.record(z.unknown()).optional().describe("Key-value pairs for the note's YAML frontmatter. For Obsidian wiki-links, provide the unquoted raw string like `[[Note Title]]`; the system will automatically quote it for Obsidian compatibility."),
                 content: z.string().optional().describe("The initial markdown content of the note. IMPORTANT: The system will automatically wrap this content in an AI attribution callout. Do NOT manually wrap your prose."),
                 ai_model: z.string().optional().describe("The true current AI model and version generating this content (e.g., 'Gemini 3.0 Pro' or your actual identity). Do not hallucinate older versions.")

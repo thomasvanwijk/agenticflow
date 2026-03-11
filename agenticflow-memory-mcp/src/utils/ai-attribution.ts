@@ -4,26 +4,26 @@ import * as config from "../config.js";
  * Wraps content in an Obsidian AI callout if enabled.
  */
 export function wrapAsAiCallout(content: string, aiModel: string | undefined): string {
-    if (!config.ai_attribution_enabled || !content.trim()) {
+    if (!config.AI_ATTRIBUTION_ENABLED || !content.trim()) {
         return content;
     }
 
-    if (content.trim().startsWith(`> [!${config.ai_attribution_callout_type}]`)) {
+    if (content.trim().startsWith(`> [!${config.AI_ATTRIBUTION_CALLOUT_TYPE}]`)) {
         return content;
     }
 
     const dateStr = new Date().toISOString().split("T")[0];
     const titleParts: string[] = [];
     
-    if (config.ai_attribution_include_model && aiModel) {
+    if (config.AI_ATTRIBUTION_INCLUDE_MODEL && aiModel) {
         titleParts.push(aiModel);
     }
-    if (config.ai_attribution_include_date) {
+    if (config.AI_ATTRIBUTION_INCLUDE_DATE) {
         titleParts.push(dateStr);
     }
 
     const title = titleParts.length > 0 ? ` ${titleParts.join(" · ")}` : "";
-    const calloutHeader = `> [!${config.ai_attribution_callout_type}]${title}\n`;
+    const calloutHeader = `> [!${config.AI_ATTRIBUTION_CALLOUT_TYPE}]${title}\n`;
 
     const wrappedLines = content
         .split("\n")
@@ -46,7 +46,7 @@ export function addContributorToFrontmatter(
     fileContent: string,
     aiModel: string | undefined
 ): string {
-    if (!config.ai_attribution_enabled || !aiModel) {
+    if (!config.AI_ATTRIBUTION_ENABLED || !aiModel) {
         return fileContent;
     }
 
@@ -115,7 +115,7 @@ export function mergeFrontmatterWithContributor(
 ): Record<string, any> {
     const merged = { ...existing, ...(added || {}) };
 
-    if (config.ai_attribution_enabled && aiModel) {
+    if (config.AI_ATTRIBUTION_ENABLED && aiModel) {
         let contributors = merged.contributors || [];
         if (!Array.isArray(contributors)) {
             contributors = typeof contributors === "string" ? [contributors] : [];
