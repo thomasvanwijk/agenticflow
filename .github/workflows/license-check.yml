@@ -21,7 +21,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: |
             cli/package-lock.json
-            agenticflow-memory-mcp/package-lock.json
+            packages/*/package-lock.json
 
       - name: Check CLI Licenses
         run: |
@@ -34,13 +34,46 @@ jobs:
             exit 1
           fi
 
+      - name: Check Semantic Search Core Licenses
+        run: |
+          cd packages/mcp-semantic-search-core
+          npm ci
+          VIOLATIONS=$(npx license-checker --production --json --excludePrivatePackages | jq -r 'to_entries[] | select(.value.licenses | IN("MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD", "LGPL-3.0-or-later", "BlueOak-1.0.0", "(MIT OR CC0-1.0)") | not) | select(.key | (contains("@chroma-core/") or contains("flatbuffers") or contains("@agenticflow/")) | not) | "\(.key): \(.value.licenses)"')
+          if [ -n "$VIOLATIONS" ]; then
+            echo "License violations found in Semantic Search Core MCP:"
+            echo "$VIOLATIONS"
+            exit 1
+          fi
+
+      - name: Check Embedding Providers Licenses
+        run: |
+          cd packages/mcp-embedding-providers
+          npm ci
+          VIOLATIONS=$(npx license-checker --production --json --excludePrivatePackages | jq -r 'to_entries[] | select(.value.licenses | IN("MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD", "LGPL-3.0-or-later", "BlueOak-1.0.0", "(MIT OR CC0-1.0)") | not) | select(.key | (contains("@chroma-core/") or contains("flatbuffers") or contains("@agenticflow/")) | not) | "\(.key): \(.value.licenses)"')
+          if [ -n "$VIOLATIONS" ]; then
+            echo "License violations found in Embedding Providers MCP:"
+            echo "$VIOLATIONS"
+            exit 1
+          fi
+
       - name: Check Memory MCP Licenses
         run: |
-          cd agenticflow-memory-mcp
+          cd packages/mcp-memory
           npm ci
-          VIOLATIONS=$(npx license-checker --production --json --excludePrivatePackages | jq -r 'to_entries[] | select(.value.licenses | IN("MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD", "LGPL-3.0-or-later", "BlueOak-1.0.0", "(MIT OR CC0-1.0)") | not) | select(.key | (contains("@chroma-core/") or contains("flatbuffers") or contains("agenticflow-memory-mcp")) | not) | "\(.key): \(.value.licenses)"')
+          VIOLATIONS=$(npx license-checker --production --json --excludePrivatePackages | jq -r 'to_entries[] | select(.value.licenses | IN("MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD", "LGPL-3.0-or-later", "BlueOak-1.0.0", "(MIT OR CC0-1.0)") | not) | select(.key | (contains("@chroma-core/") or contains("flatbuffers") or contains("@agenticflow/")) | not) | "\(.key): \(.value.licenses)"')
           if [ -n "$VIOLATIONS" ]; then
             echo "License violations found in Memory MCP:"
+            echo "$VIOLATIONS"
+            exit 1
+          fi
+
+      - name: Check Sync Controller MCP Licenses
+        run: |
+          cd packages/mcp-sync-controller
+          npm ci
+          VIOLATIONS=$(npx license-checker --production --json --excludePrivatePackages | jq -r 'to_entries[] | select(.value.licenses | IN("MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD", "LGPL-3.0-or-later", "BlueOak-1.0.0", "(MIT OR CC0-1.0)") | not) | select(.key | (contains("@chroma-core/") or contains("flatbuffers") or contains("@agenticflow/")) | not) | "\(.key): \(.value.licenses)"')
+          if [ -n "$VIOLATIONS" ]; then
+            echo "License violations found in Sync Controller MCP:"
             echo "$VIOLATIONS"
             exit 1
           fi
