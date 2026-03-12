@@ -1,21 +1,16 @@
 {
     "name": "agenticflow",
     "transport": "stdio",
-    "description": "Agenticflow — semantic memory, tool discovery and execution. Default role is 'discovery' (3 tools). Set AGENTICFLOW_ROLE to 'all' in env to expose all 11 tools directly if your LLM struggles with discovery.",
+    "description": "Agenticflow Core — Sync, Discovery and Tool Execution",
     "command": "node",
     "args": [
-        "/app/agenticflow-memory-mcp/dist/index.js"
+        "/app/packages/mcp-sync-controller/dist/index.js"
     ],
     "env": {
-        "AGENTICFLOW_ROLE": "discovery",
-        "EMBEDDING_PROVIDER": "local",
-        "VAULT_PATH": "/vault",
+        "REGISTRY": "http://127.0.0.1:8080",
         "CHROMA_HOST": "chroma",
-        "CHROMA_PORT": "8000",
-        "OLLAMA_BASE_URL": "http://host.docker.internal:11434",
-        "AI_ATTRIBUTION_ENABLED": "true",
-        "AI_ATTRIBUTION_INCLUDE_MODEL": "true",
-        "AI_ATTRIBUTION_INCLUDE_DATE": "true"
+        "CHROMA_PORT": "8000"
     },
+    "expose": true,
     "session_mode": "stateful"
 }

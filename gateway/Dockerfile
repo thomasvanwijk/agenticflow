@@ -6,26 +6,30 @@ WORKDIR /build
 RUN git clone --depth 1 --branch 0.3.5 https://github.com/mcpjungle/MCPJungle.git .
 RUN go build -o /mcpjungle .
 
-# Stage 2: Build agenticflow-memory-mcp
-FROM node:22-bookworm-slim AS memory-builder
+# Stage 2: Build Node components (Monorepo)
+FROM node:22-bookworm-slim AS node-builder
 
 WORKDIR /app
-COPY agenticflow-memory-mcp/package*.json ./
+COPY package*.json ./
+COPY packages/ packages/
+COPY cli/ cli/
+
+# Use 8GB memory limit for Node during build
+ENV NODE_OPTIONS="--max-old-space-size=8192"
+
+# Install dependencies (including devDeps for tsc)
 RUN npm install
-COPY agenticflow-memory-mcp/ .
-RUN npm run build
 
-# Stage 3: Build agenticflow CLI
-FROM node:22-bookworm-slim AS cli-builder
+# Build workspaces sequentially to manage memory and respect internal dependencies.
+# Using -w ensures npm finds the correct hoisted binaries (like tsc).
+RUN npm run build -w @agenticflow/mcp-embedding-providers
+RUN npm run build -w @agenticflow/mcp-semantic-search-core
+RUN npm run build -w @agenticflow/mcp-memory
+RUN npm run build -w @agenticflow/mcp-sync-controller
+RUN npm run build -w agenticflow-cli
 
-WORKDIR /app
-COPY cli/package*.json ./
-RUN npm install
-COPY cli/ .
-RUN npm run build
-
-# Stage 4: Runtime
-FROM node:24-bookworm-slim
+# Stage 3: Runtime
+FROM node:22-bookworm-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -36,6 +40,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-venv \
+    build-essential python3-dev g++ make \
     && curl -LsSf https://astral.sh/uv/install.sh | sh \
     && rm -rf /var/lib/apt/lists/*
 
@@ -45,33 +50,24 @@ ENV PATH="/root/.local/bin:${PATH}"
 # Copy MCPJungle binary
 COPY --from=mcpjungle-builder /mcpjungle /usr/local/bin/mcpjungle
 
-# Copy compiled memory MCP
-COPY --from=memory-builder /app /app/agenticflow-memory-mcp
+# Copy all node packages
+WORKDIR /app
+COPY --from=node-builder /app .
 
-# Copy cli and link the agenticflow global command
-COPY --from=cli-builder /app /app/cli
+# Link the agenticflow global command
 RUN cd /app/cli && npm link
 
-WORKDIR /
-
-# Install global MCP servers and build tools for native dependencies
-RUN apt-get update && apt-get install -y build-essential python3-dev g++ make && \
-    npm install -g mcp-atlassian jsdom && \
-    sed -i 's/response.data.issues.map/(response.data.issues || []).map/g' /usr/local/lib/node_modules/mcp-atlassian/dist/jira/handlers.js && \
-    sed -i "s|/rest/api/3/search|/rest/api/3/search/jql|g" /usr/local/lib/node_modules/mcp-atlassian/dist/jira/handlers.js
-
-# Pre-download embedding models to avoid runtime latency
-COPY gateway/pre-download-models.mjs /app/agenticflow-memory-mcp/pre-download-models.mjs
-RUN cd /app/agenticflow-memory-mcp && \
-    mkdir -p /app/hf-cache && \
+# Pre-download embedding models
+RUN mkdir -p /app/hf-cache && \
     export TRANSFORMERS_CACHE=/app/hf-cache && \
-    node pre-download-models.mjs && \
-    rm pre-download-models.mjs
+    cd /app/packages/mcp-memory && \
+    if [ -f "pre-download-models.mjs" ]; then node pre-download-models.mjs; fi
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s \
     CMD curl -f http://127.0.0.1:8080/health || exit 1
 
+WORKDIR /
 COPY gateway/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

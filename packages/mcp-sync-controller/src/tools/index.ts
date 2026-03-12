@@ -17,7 +17,7 @@ export function registerTools(server: McpServer) {
         "discover_tools",
         "MUST BE YOUR FIRST STEP for finding available actions across notes, memory, and external integrations. Most tools are hidden and MUST be discovered first. Keywords that trigger this search: memory, jira, notes, codebase, search, e-mail, calendar, tasks, research. Semantically search for available MCP tools across all registered servers.",
         { query: z.string().describe("What do you want to do? (e.g., 'search for jira issues')"), limit: z.number().optional().default(5).describe("Number of tools to return") },
-        async ({ query, limit }) => {
+        async ({ query, limit }: { query: string; limit: number }) => {
             try {
                 const collection = await getToolCollection();
                 const queryEmbedding = await embeddingProvider.generate(query);
@@ -96,15 +96,14 @@ export function registerTools(server: McpServer) {
             tool_name: z.string().describe("The exact tool name to call (e.g., 'atlassian__search_jira_issues')"),
             input: z.string().optional().describe("A stringified JSON object containing the input parameters for the tool. IMPORTANT: This MUST be a JSON string, not a raw object."),
         },
-        async ({ tool_name, ...rest }) => {
-            let input = (rest as any).input;
+        async ({ tool_name, input }: { tool_name: string; input?: string }) => {
+            let parsedInput: any = {};
             if (typeof input === 'string') {
-                try { input = JSON.parse(input); } catch (e) { input = {}; }
+                try { parsedInput = JSON.parse(input); } catch (e) { parsedInput = {}; }
             }
-            if (input === null || input === undefined) { input = {}; }
 
             try {
-                const inputJson = JSON.stringify(input ?? {});
+                const inputJson = JSON.stringify(parsedInput);
                 const { stdout, stderr } = await execFileAsync(
                     "mcpjungle",
                     ["invoke", tool_name, "--input", inputJson, "--registry", REGISTRY],

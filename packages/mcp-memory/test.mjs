@@ -9,8 +9,8 @@ async function runTests() {
     process.env.VAULT_PATH = path.join(process.cwd(), "test-vault");
     
     // Test 1: Generic Markdown mode
-    console.log("\n[Test 1] Generic Markdown Mode (ENABLE_OBSIDIAN_FEATURES=false)");
-    process.env.ENABLE_OBSIDIAN_FEATURES = "false";
+    console.log("\n[Test 1] Generic Markdown Mode (AI_ATTRIBUTION_ENABLED=false)");
+    process.env.AI_ATTRIBUTION_ENABLED = "false";
     const genericText = wrapAsAiCallout("Hello world", "TestAgent");
     console.log("Wrapped Text:", JSON.stringify(genericText));
     if (genericText === "Hello world") {
@@ -20,8 +20,8 @@ async function runTests() {
     }
 
     // Test 2: Obsidian mode
-    console.log("\n[Test 2] Obsidian Mode (ENABLE_OBSIDIAN_FEATURES=true)");
-    process.env.ENABLE_OBSIDIAN_FEATURES = "true";
+    console.log("\n[Test 2] Obsidian Mode (AI_ATTRIBUTION_ENABLED=true)");
+    process.env.AI_ATTRIBUTION_ENABLED = "true";
     process.env.AI_ATTRIBUTION_CALLOUT_TYPE = "ai";
     const obsidianText = wrapAsAiCallout("Hello world", "TestAgent");
     console.log("Wrapped Text:", JSON.stringify(obsidianText));

@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.github
+secrets.enc
+config/servers.d/*.json
+!config/servers.d/*.example.json
+data
+*.log
+.DS_Store

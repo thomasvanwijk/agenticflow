@@ -16,7 +16,7 @@ export function registerTools(server: McpServer) {
         "semantic_search",
         "Semantically search memory/vault notes by meaning or intent. Returns the most relevant notes for a given query.",
         { query: z.string().describe("Search query in natural language"), limit: z.number().optional().default(5).describe("Number of results to return") },
-        async ({ query, limit }) => {
+        async ({ query, limit }: { query: string; limit: number }) => {
             try {
                 const collection = await getMemoryCollection();
                 const queryEmbedding = await embeddingProvider.generate(query);
@@ -50,7 +50,7 @@ export function registerTools(server: McpServer) {
             query: z.string().describe("Exact text or keyword to search for"),
             limit: z.number().optional().default(10).describe("Maximum number of files to return")
         },
-        async ({ query, limit }) => {
+        async ({ query, limit }: { query: string; limit: number }) => {
             try {
                 const files = walkVault(VAULT_PATH);
                 if (!files.length) {
@@ -96,7 +96,7 @@ export function registerTools(server: McpServer) {
         "index_vault",
         "Index or re-index the memory/vault into ChromaDB for semantic search. Run this once after setup, or when notes have changed significantly.",
         { force: z.boolean().optional().default(false).describe("Force re-index even if already indexed") },
-        async ({ force }) => {
+        async ({ force }: { force: boolean }) => {
             try {
                 const { indexed, skipped, total } = await indexVault(force);
                 return { content: [{ type: "text", text: `Indexing complete.\n- Indexed: ${indexed} notes\n- Skipped (failed/unchanged): ${skipped} notes\n- Total vault files: ${total}` }] };
@@ -110,7 +110,7 @@ export function registerTools(server: McpServer) {
         "recent_context",
         "Retrieve memory notes that were modified or created within the last N hours. Great for morning standups or catching up on recent work.",
         { hours: z.number().default(24).describe("Time window in hours"), limit: z.number().optional().default(10).describe("Max notes to return") },
-        async ({ hours, limit }) => {
+        async ({ hours, limit }: { hours: number; limit: number }) => {
             const cutoff = Date.now() - hours * 3600 * 1000;
             const files = walkVault(VAULT_PATH);
 
@@ -140,7 +140,7 @@ export function registerTools(server: McpServer) {
         "get_note",
         "Read a specific memory note by its path or filename. Fuzzy matches if exact path is omitted.",
         { path: z.string().describe("File path or filename, e.g. 'Projects/agenticflow.md' or just 'agenticflow'") },
-        async ({ path: notePath }) => {
+        async ({ path: notePath }: { path: string }) => {
             const resolution = resolveFuzzyPath(VAULT_PATH, notePath);
             
             if (resolution.type === "not_found") {
@@ -177,7 +177,7 @@ export function registerTools(server: McpServer) {
             content: z.string().optional().describe("The initial markdown content of the note. IMPORTANT: The system will automatically wrap this content in an AI attribution callout. Do NOT manually wrap your prose."),
             ai_model: z.string().optional().describe("The true current AI model and version generating this content (e.g., 'Gemini 3.0 Pro' or your actual identity). Do not hallucinate older versions.")
         },
-        async ({ path: notePath, frontmatter, content, ai_model }) => {
+        async ({ path: notePath, frontmatter, content, ai_model }: { path: string; frontmatter?: string; content?: string; ai_model?: string }) => {
             try {
                 const normalizedPath = notePath.endsWith(".md") ? notePath : `${notePath}.md`;
                 const full = path.join(VAULT_PATH, normalizedPath.replace(/^\//, ""));
@@ -219,7 +219,7 @@ export function registerTools(server: McpServer) {
             content: z.string().describe("The new markdown content (excluding frontmatter) to replace the file with. IMPORTANT: You MUST manually wrap any newly generated prose in `> [!ai]` callouts. The system will NOT automatically wrap the file content."),
             ai_model: z.string().optional().describe("The true current AI model and version generating this content (e.g., 'Gemini 3.0 Pro' or your actual identity). Do not hallucinate older versions.")
         },
-        async ({ path: notePath, frontmatter, content, ai_model }) => {
+        async ({ path: notePath, frontmatter, content, ai_model }: { path: string; frontmatter?: string; content: string; ai_model?: string }) => {
             try {
                 const resolution = resolveFuzzyPath(VAULT_PATH, notePath);
                 if (resolution.type === "not_found") {
@@ -260,7 +260,7 @@ export function registerTools(server: McpServer) {
             heading: z.string().optional().describe("Optional exact heading (e.g., '## Meeting Notes') to append under. If not found, it appends to the end."),
             ai_model: z.string().optional().describe("The true current AI model and version generating this content (e.g., 'Gemini 3.0 Pro' or your actual identity). Do not hallucinate older versions.")
         },
-        async ({ path: notePath, content, heading, ai_model }) => {
+        async ({ path: notePath, content, heading, ai_model }: { path: string; content: string; heading?: string; ai_model?: string }) => {
             try {
                 const resolution = resolveFuzzyPath(VAULT_PATH, notePath);
                 if (resolution.type === "not_found") {

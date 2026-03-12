@@ -1,0 +1,17 @@
+{
+    "name": "memory",
+    "transport": "stdio",
+    "description": "Semantic Memory & Notes Management (supports Markdown/Obsidian)",
+    "command": "node",
+    "args": [
+        "/app/packages/mcp-memory/dist/index.js"
+    ],
+    "env": {
+        "VAULT_PATH": "/vault",
+        "CHROMA_HOST": "chroma",
+        "CHROMA_PORT": "8000",
+        "AI_ATTRIBUTION_ENABLED": "true"
+    },
+    "expose": false,
+    "session_mode": "stateful"
+}

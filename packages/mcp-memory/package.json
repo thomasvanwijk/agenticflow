@@ -11,14 +11,13 @@
   },
   "dependencies": {
     "@agenticflow/mcp-semantic-search-core": "file:../mcp-semantic-search-core",
-    "@modelcontextprotocol/sdk": "^1.0.1",
+    "@modelcontextprotocol/sdk": "^1.6.0",
     "chokidar": "^5.0.0",
     "gray-matter": "^4.0.3",
-    "zod": "^3.23.0"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "chromadb": "^3.3.3",
     "typescript": "^5.7.3"
   }
 }

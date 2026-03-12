@@ -2,7 +2,7 @@
  * Wraps content in an Obsidian AI callout if enabled.
  */
 export function wrapAsAiCallout(content: string, aiModel: string | undefined): string {
-    const enabled = process.env.ENABLE_OBSIDIAN_FEATURES === "true";
+    const enabled = process.env.AI_ATTRIBUTION_ENABLED === "true";
     if (!enabled || !content.trim()) {
         return content;
     }
@@ -49,7 +49,7 @@ export function addContributorToFrontmatter(
     fileContent: string,
     aiModel: string | undefined
 ): string {
-    const enabled = process.env.ENABLE_OBSIDIAN_FEATURES === "true";
+    const enabled = process.env.AI_ATTRIBUTION_ENABLED === "true";
     if (!enabled || !aiModel) {
         return fileContent;
     }
@@ -118,7 +118,7 @@ export function mergeFrontmatterWithContributor(
     aiModel: string | undefined
 ): Record<string, any> {
     const merged = { ...existing, ...(added || {}) };
-    const enabled = process.env.ENABLE_OBSIDIAN_FEATURES === "true";
+    const enabled = process.env.AI_ATTRIBUTION_ENABLED === "true";
 
     if (enabled && aiModel) {
         let contributors = merged.contributors || [];
