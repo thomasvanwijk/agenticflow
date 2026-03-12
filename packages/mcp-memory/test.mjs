@@ -23,12 +23,31 @@ async function runTests() {
     console.log("\n[Test 2] Obsidian Mode (AI_ATTRIBUTION_ENABLED=true)");
     process.env.AI_ATTRIBUTION_ENABLED = "true";
     process.env.AI_ATTRIBUTION_CALLOUT_TYPE = "ai";
+    if (!fs.existsSync(process.env.VAULT_PATH)) {
+        fs.mkdirSync(process.env.VAULT_PATH, { recursive: true });
+    }
+    fs.mkdirSync(path.join(process.env.VAULT_PATH, ".obsidian"), { recursive: true });
     const obsidianText = wrapAsAiCallout("Hello world", "TestAgent");
     console.log("Wrapped Text:", JSON.stringify(obsidianText));
     if (obsidianText.includes("> [!ai]")) {
         console.log("✅ Obsidian mode correctly added AI callout");
     } else {
         console.error("❌ Obsidian mode failed");
+    }
+    
+    // Cleanup Obsidian directory for the next tests
+    fs.rmSync(path.join(process.env.VAULT_PATH, ".obsidian"), { recursive: true, force: true });
+
+    // Test 4: Non-Obsidian Mode with AI Attribution
+    console.log("\n[Test 4] Non-Obsidian Mode with AI Attribution (AI_ATTRIBUTION_ENABLED=true)");
+    const nonObsidianText = wrapAsAiCallout("Hello world", "TestAgent");
+    const nonObsidianFrontmatter = addContributorToFrontmatter("---\ntitle: Test\n---\n\nHello world", "TestAgent");
+    console.log("Wrapped Text (should omit callout):", JSON.stringify(nonObsidianText));
+    console.log("Frontmatter (should include contributor):", JSON.stringify(nonObsidianFrontmatter));
+    if (nonObsidianText === "Hello world" && nonObsidianFrontmatter.includes("- TestAgent")) {
+        console.log("✅ Non-Obsidian mode correctly bypassed callout but kept frontmatter");
+    } else {
+        console.error("❌ Non-Obsidian mode failed");
     }
 
     // Test 3: Fuzzy Path Resolution

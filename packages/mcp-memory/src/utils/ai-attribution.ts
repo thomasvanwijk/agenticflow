@@ -1,9 +1,19 @@
+import fs from "fs";
+import path from "path";
+
 /**
- * Wraps content in an Obsidian AI callout if enabled.
+ * Wraps content in an Obsidian AI callout if enabled and inside an Obsidian vault.
  */
 export function wrapAsAiCallout(content: string, aiModel: string | undefined): string {
     const enabled = process.env.AI_ATTRIBUTION_ENABLED === "true";
     if (!enabled || !content.trim()) {
+        return content;
+    }
+
+    const vaultPath = process.env.VAULT_PATH || "/vault";
+    const isObsidianVault = fs.existsSync(path.join(vaultPath, ".obsidian"));
+    
+    if (!isObsidianVault) {
         return content;
     }
 

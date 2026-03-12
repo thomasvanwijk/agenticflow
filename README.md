@@ -11,7 +11,7 @@
 `agenticflow` gives AI agents a single, intelligent MCP endpoint that routes to all your productivity tools. It adds:
 
 - **Unified gateway** via [MCPJungle](https://github.com/mcpjungle/MCPJungle) — one config in Claude/Cursor, access everything
-- **Obsidian memory** — semantic search and time-based retrieval over your personal knowledge vault
+- **Markdown & Obsidian memory** — semantic search and time-based retrieval over your personal knowledge vault or Markdown folders
 - **Skill/tool discovery** — agents find the right tool by describing intent, not by knowing tool names
 - **Plug-and-play** — add new services without reconfiguring your AI client
 - **Model Compatibility** — [Insights on how different LLMs (Claude, GPT, Gemini, Sonar) behave with agenticflow tools](docs/MODEL_COMPATIBILITY.md)
@@ -38,7 +38,7 @@ AI Client (Claude / Cursor / Custom)
 ### Prerequisites
 - Docker + Docker Compose
 - Node.js (v18+) and npm
-- An Obsidian vault (any structure)
+- An Obsidian vault or any Markdown folder (any structure)
 
 ### 1. Install & Setup
 
@@ -104,7 +104,7 @@ That's it. All your tools are now available.
 
 ## Vault Compatibility
 
-Works with **any Obsidian vault layout**. The memory server indexes by content, not structure. See [docs/obsidian-setup.md](docs/obsidian-setup.md) for the recommended setup if you're starting fresh.
+Works with **any Markdown folder** or **Obsidian vault layout**. The memory server indexes by content, not structure. It automatically detects Obsidian vaults to enable specific features like `> [!ai]` callouts. See [docs/obsidian-setup.md](docs/obsidian-setup.md) for the recommended setup if you're starting fresh.
 
 ## Contributing
 

@@ -7,13 +7,13 @@ A standalone MCP server providing semantic search and generic file operations ov
 - **File Management**: Read, create, update, and append to markdown files natively.
 - **Auto-Indexing**: Automatically watches and semantic-indexes new/changed files in the background.
 
-## Obsidian Integrations (Optional)
-This package includes explicit logic to support an Obsidian vault safely:
-- Parses Obsidian-specific frontmatter while preserving unquoted `[[Wiki Links]]`.%%This feature was removed in favor of a more generic approach that supports both Obsidian and standard markdown files.%% 
-- AI attribution (configurable injected callouts like `> [!ai] Gemini`).
-- Injects `contributors` automatically into frontmatter.
+## AI Attribution (Optional)
+This package includes explicit logic to attribute AI generated content:
+- Injects `contributors` automatically into frontmatter for universally compatible attribution.
+- Automatically detects Obsidian vaults (via the presence of an `.obsidian` folder) and wraps AI-generated content in configurable callouts like `> [!ai] Gemini`.
+- Parses frontmatter while preserving unquoted `[[Wiki Links]]`.
 
-To enable these Obsidian features, set `AI_ATTRIBUTION_ENABLED=true` in your `.env`. Otherwise, it operates as a standard, clean markdown file server.
+To enable these attribution features, set `AI_ATTRIBUTION_ENABLED=true` in your `.env`. Otherwise, it operates as a standard, clean markdown file server.
 
 ## Installation
 Currently part of the agenticflow monorepo.
