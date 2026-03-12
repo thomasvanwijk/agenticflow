@@ -66,17 +66,26 @@ The wizard will:
 
 ### 3. Connect your AI client
 
+> **⚠️ Important: Direct SSE is currently not supported.** Due to proxy routing complexities, AI clients that attempt to connect directly via SSE (e.g., native Gemini CLI) may fail to resolve the return endpoints correctly. You **must** use an `mcp-remote` bridge (or similar STDIO-to-SSE adapter) to connect.
+
 **Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
     "agenticflow": {
       "command": "npx",
-      "args": ["mcp-remote", "http://localhost:18080/mcp"]
+      "args": ["-y", "@modelcontextprotocol/server-remote", "http://localhost:18080/mcp"]
     }
   }
 }
 ```
+
+**Cursor**:
+1. Go to Settings > MCP
+2. Add new server
+3. Type: `command`
+4. Command: `npx`
+5. Args: `-y @modelcontextprotocol/server-remote http://localhost:18080/mcp`
 
 That's it. All your tools are now available.
 

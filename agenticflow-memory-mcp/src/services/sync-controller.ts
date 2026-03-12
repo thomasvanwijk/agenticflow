@@ -137,6 +137,14 @@ export async function syncState() {
             logger.info("Changes detected. Refreshing semantic tool index...", "sync-controller");
             // Small delay to allow mcpjungle to fully initialize the tools
             await new Promise(r => setTimeout(r, 2000));
+
+            // Re-enforce exposure states AFTER tools have settled to handle race conditions
+            // where a newly POSTed server finishes loading its tools after the initial enforce command.
+            logger.info("Re-enforcing exposure states after tool initialization...", "sync-controller");
+            for (const [name, config] of desiredServers.entries()) {
+                 await enforceExposureState(name, name === "agenticflow" ? true : config.expose === true);
+            }
+
             await refreshIndex();
         }
 
@@ -231,8 +239,12 @@ async function enforceExposureState(name: string, shouldExpose: boolean) {
  */
 async function enforceExistingRegistryState(currentServers: Set<string>) {
     for (const name of currentServers) {
-        // Conservative: hide anything in registry that we haven't processed yet
-        await enforceExposureState(name, false);
+        if (name === "agenticflow") {
+            await enforceExposureState(name, true);
+        } else {
+            // Conservative: hide anything in registry that we haven't processed yet
+            await enforceExposureState(name, false);
+        }
     }
 }
 

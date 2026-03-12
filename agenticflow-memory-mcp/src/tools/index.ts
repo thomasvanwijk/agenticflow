@@ -183,7 +183,7 @@ export function registerTools(server: McpServer) {
             "Create a new Obsidian note with optional frontmatter and content. Fails if the note already exists.",
             {
                 path: z.string().min(1).describe("REQUIRED: File path relative to vault root. You can provide just a filename (e.g. 'Meeting') or a full path (e.g. 'Inbox/Meeting.md'). The .md extension will be added automatically if omitted."),
-                frontmatter: z.record(z.unknown()).optional().describe("Key-value pairs for the note's YAML frontmatter. For Obsidian wiki-links, provide the unquoted raw string like `[[Note Title]]`; the system will automatically quote it for Obsidian compatibility."),
+                frontmatter: z.string().optional().describe("A stringified JSON object of key-value pairs for the note's YAML frontmatter. For Obsidian wiki-links, provide the unquoted raw string like `[[Note Title]]`; the system will automatically quote it for Obsidian compatibility."),
                 content: z.string().optional().describe("The initial markdown content of the note. IMPORTANT: The system will automatically wrap this content in an AI attribution callout. Do NOT manually wrap your prose."),
                 ai_model: z.string().optional().describe("The true current AI model and version generating this content (e.g., 'Gemini 3.0 Pro' or your actual identity). Do not hallucinate older versions.")
             },
@@ -203,8 +203,13 @@ export function registerTools(server: McpServer) {
                     const dir = path.dirname(full);
                     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
+                    let parsedFrontmatter = {};
+                    if (frontmatter) {
+                        try { parsedFrontmatter = JSON.parse(frontmatter); } catch (e) { }
+                    }
+
                     const finalContent = wrapAsAiCallout(content || "", ai_model);
-                    const finalFrontmatter = mergeFrontmatterWithContributor({}, frontmatter, ai_model);
+                    const finalFrontmatter = mergeFrontmatterWithContributor({}, parsedFrontmatter, ai_model);
                     const fileContent = stringifyWithLinks(finalContent, finalFrontmatter);
 
                     fs.writeFileSync(full, fileContent);
@@ -221,7 +226,7 @@ export function registerTools(server: McpServer) {
             "Completely replace the contents of an existing Obsidian note. This overwrites the entire file. Fuzzy matches if exact path is omitted.",
             {
                 path: z.string().describe("File path or filename, e.g. 'Projects/project.md' or just 'project'"),
-                frontmatter: z.record(z.unknown()).optional().describe("Key-value pairs for the note's YAML frontmatter. For Obsidian wiki-links, provide the unquoted raw string like `[[Note Title]]`; the system will automatically quote it for Obsidian compatibility."),
+                frontmatter: z.string().optional().describe("A stringified JSON object of key-value pairs for the note's YAML frontmatter. For Obsidian wiki-links, provide the unquoted raw string like `[[Note Title]]`; the system will automatically quote it for Obsidian compatibility."),
                 content: z.string().describe("The new markdown content (excluding frontmatter) to replace the file with. IMPORTANT: You MUST manually wrap any newly generated prose in `> [!ai]` callouts. The system will NOT automatically wrap the file content."),
                 ai_model: z.string().optional().describe("The true current AI model and version generating this content (e.g., 'Gemini 3.0 Pro' or your actual identity). Do not hallucinate older versions.")
             },
@@ -237,11 +242,16 @@ export function registerTools(server: McpServer) {
                     }
                     const full = resolution.path;
 
-                    // Since we accept frontmatter as an object now, we merge it directly.
+                    let parsedFrontmatter = {};
+                    if (frontmatter) {
+                        try { parsedFrontmatter = JSON.parse(frontmatter); } catch (e) { }
+                    }
+
+                    // Since we accept frontmatter as a string now, we merge it directly after parsing.
                     // If the user provided frontmatter in the content string (e.g., via matter), 
                     // we can optionally parse it, but standard usage should use the parameter.
                     const { data, content: body } = matter(content);
-                    const mergedFrontmatter = { ...data, ...(frontmatter || {}) };
+                    const mergedFrontmatter = { ...data, ...parsedFrontmatter };
                     const finalFrontmatter = mergeFrontmatterWithContributor(mergedFrontmatter, {}, ai_model);
                     const fileContent = stringifyWithLinks(body, finalFrontmatter);
 
@@ -352,7 +362,7 @@ export function registerTools(server: McpServer) {
         server.tool(
             "refresh_tool_index",
             "Sync the semantic tool index with all currently registered tools in MCPJungle. Run this after adding new MCP servers.",
-            {},
+            { dummy: z.string().optional().describe("Not used") },
             async () => {
                 try {
                     const collection = await getCollection("mcp_tools");
@@ -362,7 +372,9 @@ export function registerTools(server: McpServer) {
                     try {
                         const res = await fetch("http://127.0.0.1:8080/api/v0/tools");
                         if (res.ok) {
-                            tools = (await res.json()) as Array<{ name: string; description: string }>;
+                            const payload = (await res.json()) as any;
+                            // Handle both { tools: [] } and straight []
+                            tools = Array.isArray(payload) ? payload : (payload.tools || []);
                         }
                     } catch (e) {
                         logger.warn("Failed to fetch tools from MCPJungle during index refresh", { error: String(e) });
@@ -401,10 +413,10 @@ export function registerTools(server: McpServer) {
 
         server.tool(
             "call_tool",
-            "Execute a specific MCP tool by name. Use discover_tools first to find the right tool name, then call it here. This works for all tools including Jira, Confluence, and other integrations. CRITICAL: Do NOT flatten arguments! All tool parameters MUST be structured as a JSON object inside the 'input' argument. For example, if a tool takes 'path' and 'content', you must pass { \"tool_name\": \"...\", \"input\": { \"path\": \"...\", \"content\": \"...\" } }, NOT { \"tool_name\": \"...\", \"path\": \"...\", \"content\": \"...\" }.",
+            "Execute a specific MCP tool by name. Use discover_tools first to find the right tool name, then call it here. This works for all tools including Jira, Confluence, and other integrations. CRITICAL: Do NOT flatten arguments! All tool parameters MUST be structured as a JSON object inside the 'input' argument. For example, if a tool takes 'path' and 'content', you must pass { \"tool_name\": \"...\", \"input\": \"{\\\"path\\\":\\\"...\\\",\\\"content\\\":\\\"...\\\"}\" }.",
             {
                 tool_name: z.string().describe("The exact tool name to call (e.g., 'atlassian__search_jira_issues')"),
-                input: z.record(z.unknown()).optional().describe("JSON input parameters for the tool. IMPORTANT: This MUST be a nested JSON object containing the tool's parameters. Do NOT place tool parameters alongside tool_name."),
+                input: z.string().optional().describe("A stringified JSON object containing the input parameters for the tool. IMPORTANT: This MUST be a JSON string, not a raw object."),
             },
             async ({ tool_name, ...rest }) => {
                 let input = (rest as any).input;
