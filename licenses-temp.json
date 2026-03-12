@@ -1,0 +1,38 @@
+{
+  "@agenticflow/mcp-sync-controller@1.0.0": {
+    "licenses": "Custom: http://127.0.0.1",
+    "path": "/app/packages/mcp-sync-controller",
+    "licenseFile": "/app/packages/mcp-sync-controller/README.md"
+  },
+  "chokidar@3.6.0": {
+    "licenses": "MIT",
+    "repository": "https://github.com/paulmillr/chokidar",
+    "publisher": "Paul Miller",
+    "url": "https://paulmillr.com",
+    "path": "/app/packages/mcp-sync-controller/node_modules/chokidar",
+    "licenseFile": "/app/packages/mcp-sync-controller/node_modules/chokidar/LICENSE"
+  },
+  "dotenv@16.6.1": {
+    "licenses": "BSD-2-Clause",
+    "repository": "https://github.com/motdotla/dotenv",
+    "path": "/app/packages/mcp-sync-controller/node_modules/dotenv",
+    "licenseFile": "/app/packages/mcp-sync-controller/node_modules/dotenv/LICENSE"
+  },
+  "picomatch@2.3.1": {
+    "licenses": "MIT",
+    "repository": "https://github.com/micromatch/picomatch",
+    "publisher": "Jon Schlinkert",
+    "url": "https://github.com/jonschlinkert",
+    "path": "/app/packages/mcp-sync-controller/node_modules/picomatch",
+    "licenseFile": "/app/packages/mcp-sync-controller/node_modules/picomatch/LICENSE"
+  },
+  "readdirp@3.6.0": {
+    "licenses": "MIT",
+    "repository": "https://github.com/paulmillr/readdirp",
+    "publisher": "Thorsten Lorenz",
+    "email": "thlorenz@gmx.de",
+    "url": "thlorenz.com",
+    "path": "/app/packages/mcp-sync-controller/node_modules/readdirp",
+    "licenseFile": "/app/packages/mcp-sync-controller/node_modules/readdirp/LICENSE"
+  }
+}
