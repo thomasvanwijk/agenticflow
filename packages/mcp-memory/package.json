@@ -1,0 +1,24 @@
+{
+  "name": "@agenticflow/mcp-memory",
+  "version": "1.0.0",
+  "description": "Standalone MCP server for reading and writing generic markdown files to build an LLM memory system, with optional Obsidian integrations.",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@agenticflow/mcp-semantic-search-core": "file:../mcp-semantic-search-core",
+    "@modelcontextprotocol/sdk": "^1.0.1",
+    "chokidar": "^5.0.0",
+    "gray-matter": "^4.0.3",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "chromadb": "^3.3.3",
+    "typescript": "^5.7.3"
+  }
+}
