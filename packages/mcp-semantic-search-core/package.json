@@ -1,0 +1,22 @@
+{
+  "name": "@agenticflow/mcp-semantic-search-core",
+  "version": "1.0.0",
+  "description": "Shared semantic search core and ChromaDB wrapper with REST API for collection management",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch"
+  },
+  "dependencies": {
+    "chromadb": "^1.8.1",
+    "@agenticflow/mcp-embedding-providers": "file:../mcp-embedding-providers",
+    "express": "^4.21.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "@types/node": "^22.10.2",
+    "@types/express": "^4.17.21"
+  }
+}
