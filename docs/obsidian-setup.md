@@ -4,11 +4,10 @@ The `agenticflow` memory server works with **any Obsidian vault layout**. You do
 
 ## Minimum setup
 
-Just point `config.yaml` to your vault:
+Just ensure `VAULT_PATH` is set in your `.env` (this is handled automatically if you use the setup wizard):
 
-```yaml
-memory:
-  vault_path: "/Users/you/Documents/Obsidian/YourVault"
+```bash
+VAULT_PATH=/Users/you/Documents/Obsidian/YourVault
 ```
 
 The server will scan, index, and watch for changes automatically.

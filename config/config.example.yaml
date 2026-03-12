@@ -1,28 +1,26 @@
-# agenticflow configuration
-# Copy this file to config.yaml and fill in your values.
-# config.yaml is gitignored and will never be committed.
+# ⚠️ REFERENCE ONLY ⚠️
+# This file is legacy and not used by the Agenticflow CLI or services.
+# Configuration is managed via the .env file (for global settings)
+# and JSON files in config/servers.d/ (for MCP servers).
 
 # ─── Gateway ──────────────────────────────────────────────────────────────────
 gateway:
-  host_port: 18080       # Change if 18080 is in use on your machine
-  auth_token: ""         # Optional: set a token to secure your gateway
+  host_port: 18080       # Port used in the .env file
+  auth_token: ""         # Managed via Caddy/Auth Proxy
 
 # ─── Obsidian Memory ──────────────────────────────────────────────────────────
 memory:
-  vault_path: "/absolute/path/to/vault"  # REQUIRED
-  # vault_path works with ANY vault structure — no reorganization needed.
+  vault_path: "/absolute/path/to/vault"  # Managed via .env (VAULT_PATH)
 
-  # Embedding provider: "ollama" (free, local) or "openai"
+  # Embedding provider: "local" (default), "ollama" or "openai"
   embedding:
-    provider: "ollama"
-    model: "nomic-embed-text"
+    provider: "local"
+    model: "Xenova/jina-embeddings-v2-small-en"
 
-    # Only needed if provider is "openai"
+    # Settings below are managed via .env
     # openai_api_key: "sk-..."
-
-    # Only needed if ollama is not running on default port
     # ollama_base_url: "http://localhost:11434"
 
 # ─── Database ─────────────────────────────────────────────────────────────────
 postgres:
-  password: "changeme"   # Change this in production
+  password: "changeme"   # Managed via .env (POSTGRES_PASSWORD)

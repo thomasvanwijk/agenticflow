@@ -108,7 +108,7 @@ Works with **any Obsidian vault layout**. The memory server indexes by content, 
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). The project is structured so you only need to configure `config/config.yaml` — nothing personal ever lands in the repo.
+See [CONTRIBUTING.md](CONTRIBUTING.md). The project is structured so you only need to configure your `.env` and `servers.d/` configuration files — nothing personal ever lands in the repo.
 
 ## License
 
