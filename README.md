@@ -102,6 +102,11 @@ That's it. All your tools are now available.
 | Miro | 📋 Planned |
 | MS Fabric | 📋 Planned |
 
+## Troubleshooting
+
+### High CPU Usage on Low-End Devices
+If you are running agenticflow on a device with limited CPU cores (e.g. 2 cores) and notice 100% CPU usage during start or when indexing, you can enable `AGENTICFLOW_LOW_RESOURCE_MODE=true` in your `.env` file. This limits the local embedding models to a single thread, preventing the container from starving the host OS.
+
 ## Vault Compatibility
 
 Works with **any Markdown folder** or **Obsidian vault layout**. The memory server indexes by content, not structure. It automatically detects Obsidian vaults to enable specific features like `> [!ai]` callouts. See [docs/obsidian-setup.md](docs/obsidian-setup.md) for the recommended setup if you're starting fresh.

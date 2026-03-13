@@ -17,6 +17,19 @@ export class LocalProvider implements EmbeddingProvider {
                 LocalProvider.initPromise = (async () => {
                     const { pipeline, env } = await import("@huggingface/transformers");
                     env.cacheDir = process.env.TRANSFORMERS_CACHE || "/app/hf-cache";
+                    
+                    if (process.env.AGENTICFLOW_LOW_RESOURCE_MODE === "true") {
+                        console.info("[LocalProvider] Low resource mode enabled. Limiting ONNX threads to 1.");
+                        if (env.backends?.onnx) {
+                            if ((env.backends.onnx as any).wasm) {
+                                (env.backends.onnx as any).wasm.numThreads = 1;
+                            }
+                            // Also set the native thread limits in case the native backend is used.
+                            (env.backends.onnx as any).intra_op_num_threads = 1;
+                            (env.backends.onnx as any).inter_op_num_threads = 1;
+                        }
+                    }
+
                     console.info(`[LocalProvider] Loading local embedding model: ${this.model}`);
                     const loadedPipeline = await pipeline("feature-extraction", this.model, { dtype: "q8" });
                     console.info(`[LocalProvider] Local embedding model loaded.`);
