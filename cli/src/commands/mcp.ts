@@ -270,9 +270,10 @@ export async function addMcpAction(nameArg: string | undefined, options: { comma
 }
 
 export async function statusMcpAction(name?: string) {
+    const gatewayUrlEnv = process.env.AGENTICFLOW_GATEWAY_URL;
     const gatewayPort = process.env.HOST_PORT || "18080";
-    const registryUrl = `http://127.0.0.1:${gatewayPort}/api/v0/servers`;
-    const toolsUrl = `http://127.0.0.1:${gatewayPort}/api/v0/tools`;
+    const registryUrl = gatewayUrlEnv ? `${gatewayUrlEnv}/api/v0/servers` : `http://127.0.0.1:${gatewayPort}/api/v0/servers`;
+    const toolsUrl = gatewayUrlEnv ? `${gatewayUrlEnv}/api/v0/tools` : `http://127.0.0.1:${gatewayPort}/api/v0/tools`;
 
     const spinner = ora("Fetching MCP status...").start();
     try {

@@ -16,5 +16,19 @@ registerTools(server);
 const transport = new StdioServerTransport();
 await server.connect(transport);
 
+// Keep the process alive
+const keepAlive = setInterval(() => {}, 1000 * 60 * 60);
+
 logger.info("Sync Controller MCP server started successfully", "server_startup");
+
+process.on("SIGINT", async () => {
+  clearInterval(keepAlive);
+  await server.close();
+  process.exit(0);
+});
+process.on("SIGTERM", async () => {
+  clearInterval(keepAlive);
+  await server.close();
+  process.exit(0);
+});
 

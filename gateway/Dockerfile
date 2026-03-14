@@ -53,6 +53,7 @@ COPY --from=mcpjungle-builder /mcpjungle /usr/local/bin/mcpjungle
 # Copy all node packages
 WORKDIR /app
 COPY --from=node-builder /app .
+COPY gateway/ gateway/
 
 # Link the agenticflow global command
 RUN cd /app/cli && npm link
@@ -60,8 +61,7 @@ RUN cd /app/cli && npm link
 # Pre-download embedding models
 RUN mkdir -p /app/hf-cache && \
     export TRANSFORMERS_CACHE=/app/hf-cache && \
-    cd /app/packages/mcp-memory && \
-    if [ -f "pre-download-models.mjs" ]; then node pre-download-models.mjs; fi
+    if [ -f "gateway/pre-download-models.mjs" ]; then node gateway/pre-download-models.mjs; fi
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s \

@@ -8,7 +8,7 @@ export class LocalProvider implements EmbeddingProvider {
     private model: string;
 
     constructor(model?: string) {
-        this.model = model && model !== "nomic-embed-text" ? model : "Xenova/all-MiniLM-L6-v2";
+        this.model = model && model !== "nomic-embed-text" ? model : "Xenova/jina-embeddings-v2-small-en";
     }
 
     async generate(text: string): Promise<number[]> {
@@ -19,7 +19,7 @@ export class LocalProvider implements EmbeddingProvider {
                     env.cacheDir = process.env.TRANSFORMERS_CACHE || "/app/hf-cache";
                     
                     if (process.env.AGENTICFLOW_LOW_RESOURCE_MODE === "true") {
-                        console.info("[LocalProvider] Low resource mode enabled. Limiting ONNX threads to 1.");
+                        console.error("[LocalProvider] Low resource mode enabled. Limiting ONNX threads to 1.");
                         if (env.backends?.onnx) {
                             if ((env.backends.onnx as any).wasm) {
                                 (env.backends.onnx as any).wasm.numThreads = 1;
@@ -30,9 +30,9 @@ export class LocalProvider implements EmbeddingProvider {
                         }
                     }
 
-                    console.info(`[LocalProvider] Loading local embedding model: ${this.model}`);
+                    console.error(`[LocalProvider] Loading local embedding model: ${this.model}`);
                     const loadedPipeline = await pipeline("feature-extraction", this.model, { dtype: "q8" });
-                    console.info(`[LocalProvider] Local embedding model loaded.`);
+                    console.error(`[LocalProvider] Local embedding model loaded.`);
                     return loadedPipeline;
                 })();
             }
