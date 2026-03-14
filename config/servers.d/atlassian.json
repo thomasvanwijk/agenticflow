@@ -1,13 +1,17 @@
 {
     "name": "atlassian",
     "transport": "stdio",
-    "description": "Atlassian Jira and Confluence MCP server",
-    "command": "mcp-atlassian",
-    "args": [],
+    "description": "Atlassian Jira MCP server",
+    "command": "npx",
+    "args": [
+        "-y",
+        "@mcpio/jira"
+    ],
     "env": {
-        "ATLASSIAN_BASE_URL": "${ATLASSIAN_BASE_URL}",
-        "ATLASSIAN_EMAIL": "${ATLASSIAN_EMAIL}",
-        "ATLASSIAN_API_TOKEN": "${ATLASSIAN_API_TOKEN}"
+        "JIRA_HOST": "${MCP_ATLASSIAN_BASE_URL}",
+        "JIRA_BASE_URL": "${MCP_ATLASSIAN_BASE_URL}",
+        "JIRA_EMAIL": "${MCP_ATLASSIAN_EMAIL}",
+        "JIRA_API_TOKEN": "${MCP_ATLASSIAN_API_TOKEN}"
     },
     "session_mode": "stateful"
 }

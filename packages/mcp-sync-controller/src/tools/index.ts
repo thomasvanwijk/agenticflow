@@ -18,12 +18,27 @@ export function registerTools(server: McpServer) {
         "MUST BE YOUR FIRST STEP for finding available actions across notes, memory, and external integrations. Most tools are hidden and MUST be discovered first. Keywords that trigger this search: memory, jira, notes, codebase, search, e-mail, calendar, tasks, research. Semantically search for available MCP tools across all registered servers.",
         { query: z.string().describe("What do you want to do? (e.g., 'search for jira issues')"), limit: z.number().optional().default(5).describe("Number of tools to return") },
         async ({ query, limit }: { query: string; limit: number }) => {
+            const start = Date.now();
             try {
+                logger.info(`Starting tool discovery for query: "${query}"`, "discover_tools");
+                
                 const collection = await getToolCollection();
+                const collectionReady = Date.now();
+                
                 const queryEmbedding = await embeddingProvider.generate(query);
+                const embeddingReady = Date.now();
+                
                 const results = await collection.query({
                     queryEmbeddings: [queryEmbedding],
                     nResults: limit,
+                });
+                const queryDone = Date.now();
+
+                logger.info("Discovery performance", "discover_tools", {
+                    total_ms: queryDone - start,
+                    collection_ms: collectionReady - start,
+                    embedding_ms: embeddingReady - collectionReady,
+                    query_ms: queryDone - embeddingReady
                 });
 
                 if (!results.documents[0]?.length) {

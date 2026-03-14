@@ -24,26 +24,37 @@ export function resetSyncState() {
 
 /**
  * Resolves ${VAR} and {{VAR}} placeholders in a server config's env block.
+ * Returns { env, hasUnresolved }
  */
-export function resolveEnvVars(config: any, env: Record<string, string | undefined> = process.env as any): any {
-    if (!config.env || typeof config.env !== "object") return config;
+export function resolveEnvVars(config: any, env: Record<string, string | undefined> = process.env as any): { env: Record<string, string>, hasUnresolved: boolean } {
+    if (!config.env || typeof config.env !== "object") return { env: {}, hasUnresolved: false };
 
     const resolvedEnv: Record<string, string> = {};
+    let hasUnresolved = false;
+
     for (const [key, value] of Object.entries(config.env)) {
-        resolvedEnv[key] = String(value).replace(
+        let val = String(value);
+        let resolvedVal = val.replace(
             /\$\{([A-Z0-9_]+)\}|\{\{([A-Z0-9_]+)\}\}/gi,
             (match, g1, g2) => {
                 const varName = g1 ?? g2;
                 const resolved = env[varName];
                 if (resolved === undefined) {
-                    logger.warn(`Secret '${varName}' not found in environment for server env key '${key}'`, "sync-controller");
+                    hasUnresolved = true;
                     return match;
                 }
                 return resolved;
             }
         );
+
+        // Special handling for Jira HTTPS requirement
+        if (key === "JIRA_HOST" && resolvedVal && !resolvedVal.startsWith("http") && !resolvedVal.includes("${")) {
+            resolvedVal = `https://${resolvedVal}`;
+        }
+
+        resolvedEnv[key] = resolvedVal;
     }
-    return { ...config, env: resolvedEnv };
+    return { env: resolvedEnv, hasUnresolved };
 }
 
 export async function syncState() {
@@ -52,6 +63,7 @@ export async function syncState() {
         return;
     }
     isSyncing = true;
+    const cycleStart = Date.now();
     logger.info("Starting synchronization cycle...", "sync-controller");
 
     try {
@@ -119,7 +131,7 @@ export async function syncState() {
             await refreshIndex();
         }
 
-        logger.info("Synchronization complete.", "sync-controller");
+        logger.info(`Synchronization complete in ${Date.now() - cycleStart}ms.`, "sync-controller");
     } catch (err) {
         logger.error("Synchronization failed", "sync-controller", { error: String(err) });
     } finally {
@@ -128,35 +140,46 @@ export async function syncState() {
 }
 
 async function registerOrUpdateServer(name: string, config: any, currentServers: Set<string>): Promise<boolean> {
-    const templateString = JSON.stringify(config);
-    const isUnchanged = configCache.get(name) === templateString && currentServers.has(name);
+    const { env: resolvedEnv, hasUnresolved } = resolveEnvVars(config, process.env as any);
+    
+    if (hasUnresolved) {
+        logger.warn(`Skipping registration of '${name}': Required secrets are missing or unresolved.`, "sync-controller");
+        return false;
+    }
 
-    if (isUnchanged) {
+    const resolvedConfig = { ...config, env: resolvedEnv };
+    const resolvedString = JSON.stringify(resolvedConfig);
+    const templateString = JSON.stringify(config);
+
+    // If already in memory cache and in registry, skip
+    if (configCache.get(name) === templateString && currentServers.has(name)) {
         logger.debug(`Server ${name} config unchanged, skipping re-registration`, "sync-controller");
         return false;
     }
 
     try {
         if (currentServers.has(name)) {
-            logger.info(`Config changed or missing in registry. Updating existing server: ${name}`, "sync-controller");
+            logger.debug(`Updating existing server: ${name}`, "sync-controller");
             try {
-                const delRes = await fetch(`${REGISTRY}/api/v0/servers/${name}`, {
-                    method: "DELETE"
-                });
+                // DELETE should be fast
+                const delController = new AbortController();
+                const delTimeout = setTimeout(() => delController.abort(), 10000);
+                await fetch(`${REGISTRY}/api/v0/servers/${name}`, { 
+                    method: "DELETE",
+                    signal: delController.signal
+                }).finally(() => clearTimeout(delTimeout));
             } catch (e) { }
         } else {
             logger.info(`Registering new server: ${name}`, "sync-controller");
         }
 
-        const resolvedConfig = resolveEnvVars(config, process.env as any);
-
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000);
+        const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minutes
 
         const postRes = await fetch(`${REGISTRY}/api/v0/servers`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(resolvedConfig),
+            body: resolvedString,
             signal: controller.signal
         }).finally(() => clearTimeout(timeoutId));
 
@@ -168,8 +191,14 @@ async function registerOrUpdateServer(name: string, config: any, currentServers:
             const errText = await postRes.text();
             logger.error(`Failed to register ${name}: ${errText}`, "sync-controller");
         }
-    } catch (e) {
-        logger.error(`Error during registration of ${name}`, "sync-controller", { error: String(e) });
+    } catch (e: any) {
+        if (e.name === "AbortError") {
+            logger.error(`Timeout during registration of ${name} (180s exceeded).`, "sync-controller");
+            // Set cache to empty to force retry next time, but stop this cycle
+            configCache.delete(name);
+        } else {
+            logger.error(`Error during registration of ${name}`, "sync-controller", { error: String(e) });
+        }
     }
     return false;
 }
@@ -193,9 +222,15 @@ async function enforceExistingRegistryState(currentServers: Set<string>) {
         if (name === "agenticflow") {
             await enforceExposureState(name, true);
         } else {
-            await enforceExposureState(name, false);
+            await enforceExistingRegistryStateEntry(name, currentServers);
         }
     }
+}
+
+// Fixed helper for initial state enforcement
+async function enforceExistingRegistryStateEntry(name: string, currentServers: Set<string>) {
+     // For now just disable non-core servers on boot until they are synced
+     await enforceExposureState(name, false);
 }
 
 async function refreshIndex() {

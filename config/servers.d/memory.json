@@ -10,6 +10,8 @@
         "VAULT_PATH": "/vault",
         "CHROMA_HOST": "chroma",
         "CHROMA_PORT": "8000",
+        "EMBEDDING_MODEL": "Xenova/jina-embeddings-v2-small-en",
+        "AGENTICFLOW_LOW_RESOURCE_MODE": "true",
         "AI_ATTRIBUTION_ENABLED": "true"
     },
     "expose": false,

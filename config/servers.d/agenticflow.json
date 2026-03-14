@@ -9,7 +9,10 @@
     "env": {
         "REGISTRY": "http://127.0.0.1:8080",
         "CHROMA_HOST": "chroma",
-        "CHROMA_PORT": "8000"
+        "CHROMA_PORT": "8000",
+        "EMBEDDING_MODEL": "Xenova/jina-embeddings-v2-small-en",
+        "AGENTICFLOW_LOW_RESOURCE_MODE": "true",
+        "AI_ATTRIBUTION_ENABLED": "true"
     },
     "expose": true,
     "session_mode": "stateful"
