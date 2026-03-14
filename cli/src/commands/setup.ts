@@ -185,8 +185,8 @@ export async function setupAction(options: any) {
     if (options.index !== false) {
         const { doIndex } = await inquirer.prompt([{ type: "confirm", name: "doIndex", message: "Index now?", default: true }]);
         if (doIndex) {
-            const indexSuccess = runShell("docker exec agenticflow-gateway mcpjungle invoke obsidian__index_vault", true);
-            const refreshSuccess = runShell("docker exec agenticflow-gateway mcpjungle invoke agenticflow__refresh_tool_index", true);
+            const indexSuccess = runDockerCompose("exec gateway mcpjungle invoke obsidian__index_vault", true);
+            const refreshSuccess = runDockerCompose("exec gateway mcpjungle invoke agenticflow__refresh_tool_index", true);
             if (indexSuccess && refreshSuccess) {
                 ora().succeed("Indexed.");
             } else {

@@ -355,7 +355,8 @@ export async function logsMcpAction(name: string, options: { tail?: string } = {
     console.log(`\n--- Logs for MCP Server: ${name} (showing last ${tailCount} lines) ---`);
     // mcpjungle logs currently doesn't have a specific per-server tail, 
     // so we grep the gateway logs for mention of the server name.
-    const cmd = `docker logs agenticflow-gateway 2>&1 | grep -i "${name}" | tail -n ${tailCount}`;
+    const composeCmd = await import("../utils/shell.js").then(m => m.getDockerComposeCommand());
+    const cmd = `${composeCmd} logs gateway 2>&1 | grep -i "${name}" | tail -n ${tailCount}`;
     const logs = runShellWithOutput(cmd);
     if (logs) {
         console.log(logs);

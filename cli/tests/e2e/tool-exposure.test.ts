@@ -30,11 +30,11 @@ describe("Tool Exposure & Discovery", () => {
 
     it("should allow discovery of disabled tools via agenticflow__discover_tools", () => {
         // We need to refresh the index first to ensure it's seeded
-        execSync('docker exec agenticflow-gateway mcpjungle invoke agenticflow__refresh_tool_index --registry http://127.0.0.1:8080');
+        execSync('docker compose -f ../docker-compose.yaml exec gateway mcpjungle invoke agenticflow__refresh_tool_index --registry http://127.0.0.1:8080');
         
         // Query the discover_tools endpoint
         const input = JSON.stringify({ query: "create a note", limit: 5 });
-        const output = execSync(`docker exec agenticflow-gateway mcpjungle invoke agenticflow__discover_tools --input '${input}' --registry http://127.0.0.1:8080 2>&1`).toString();
+        const output = execSync(`docker compose -f ../docker-compose.yaml exec gateway mcpjungle invoke agenticflow__discover_tools --input '${input}' --registry http://127.0.0.1:8080 2>&1`).toString();
         
         // The result should contain a reference to obsidian__create_note
         expect(output).toContain("obsidian__create_note");
@@ -47,7 +47,7 @@ describe("Tool Exposure & Discovery", () => {
         };
         const input = JSON.stringify(payload);
         
-        const output = execSync(`docker exec agenticflow-gateway mcpjungle invoke agenticflow__call_tool --input '${input}' --registry http://127.0.0.1:8080 2>&1`).toString();
+        const output = execSync(`docker compose -f ../docker-compose.yaml exec gateway mcpjungle invoke agenticflow__call_tool --input '${input}' --registry http://127.0.0.1:8080 2>&1`).toString();
         
         // Since we are searching the vault, it should return a result from the MCP tool execution
         expect(output).toContain("AgenticFlow");

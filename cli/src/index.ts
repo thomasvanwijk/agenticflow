@@ -6,10 +6,14 @@ import { upAction, downAction, uninstallAction } from "./commands/lifecycle.js";
 import { embeddingAction } from "./commands/embedding.js";
 import { setSecretAction, getSecretAction, listSecretsAction, exportSecretsAction } from "./commands/secrets.js";
 import { addMcpAction, listMcpAction, removeMcpAction } from "./commands/mcp.js";
-import { DEFAULT_SECRETS_FILE } from "./config.js";
+import { DEFAULT_SECRETS_FILE, PROJECT_NAME } from "./config.js";
 
 const program = new Command();
-program.name("agenticflow").description("Agenticflow Management CLI").version("1.1.0");
+program.name(PROJECT_NAME).description(`${PROJECT_NAME} Management CLI`).version("1.1.0");
+
+program
+    .option("--env <env>", "Target environment context (e.g. main, feature)")
+    .option("--workspace <path>", "Target workspace directory");
 
 program
     .command("setup")

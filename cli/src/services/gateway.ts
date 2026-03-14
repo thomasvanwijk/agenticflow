@@ -11,7 +11,7 @@ export async function waitForGateway(hostPort: string) {
         }
         attempts++;
         if (attempts > 60) {
-            waitSpinner.fail("Timed out waiting for gateway. Check 'docker logs agenticflow-gateway' for errors.");
+            waitSpinner.fail("Timed out waiting for gateway. Check 'docker compose logs gateway' for errors.");
             process.exit(1);
         }
         await new Promise(r => setTimeout(r, 2000));

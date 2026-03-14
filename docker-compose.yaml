@@ -1,12 +1,11 @@
-name: agenticflow
+name: ${PROJECT_NAME:-agenticflow}-${ENV_NAME:-main}
 
 services:
   # ─── Auth Proxy (Caddy) ───────────────────────────────────────────────────
   proxy:
     image: caddy:alpine
-    container_name: agenticflow-proxy
     ports:
-      - "${HOST_PORT:-18080}:18080"
+      - "${PROXY_PORT:-18080}:18080"
     environment:
       - AGENTICFLOW_REMOTE_ENABLED=${AGENTICFLOW_REMOTE_ENABLED:-false}
       - AGENTICFLOW_REMOTE_USER=${AGENTICFLOW_REMOTE_USER:-disabled_user}
@@ -22,10 +21,9 @@ services:
     build:
       context: .
       dockerfile: gateway/Dockerfile
-    container_name: agenticflow-gateway
     # The gateway is now shielded by the auth proxy and not exposed to the host directly.
     environment:
-      - DATABASE_URL=postgres://agenticflow:${POSTGRES_PASSWORD:-changeme}@postgres:5432/agenticflow
+      - DATABASE_URL=postgres://${PROJECT_NAME:-agenticflow}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${PROJECT_NAME:-agenticflow}
       - AGENTICFLOW_MASTER_PASSWORD=${AGENTICFLOW_MASTER_PASSWORD:-changeme}
       - NODE_OPTIONS=--max-old-space-size=512
       - MCP_SERVER_INIT_REQ_TIMEOUT_SEC=120
@@ -59,7 +57,8 @@ services:
   # ─── Vector Database (for Obsidian memory) ────────────────────────────────
   chroma:
     image: chromadb/chroma:latest
-    container_name: agenticflow-chroma
+    ports:
+      - "${CHROMA_PORT:-8000}:8000"
     volumes:
       - chroma_data:/chroma/chroma
     restart: unless-stopped
@@ -67,15 +66,16 @@ services:
   # ─── Postgres (MCPJungle persistence) ─────────────────────────────────────
   postgres:
     image: postgres:16-alpine
-    container_name: agenticflow-postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
     environment:
-      - POSTGRES_USER=agenticflow
+      - POSTGRES_USER=${PROJECT_NAME:-agenticflow}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
-      - POSTGRES_DB=agenticflow
+      - POSTGRES_DB=${PROJECT_NAME:-agenticflow}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U agenticflow" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${PROJECT_NAME:-agenticflow}" ]
       interval: 5s
       timeout: 5s
       retries: 5
