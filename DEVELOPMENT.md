@@ -17,7 +17,7 @@ To solve this, we support dynamic configuration based on your git worktree (or b
    ```
 
 2. **Bootstrap the environment:**
-   We provide a script that generates a `.env.local` file with unique port assignments based on the environment name.
+   We provide a script that generates an `.env` file with unique port assignments based on the environment name.
    ```bash
    ./bootstrap-env.sh
    ```

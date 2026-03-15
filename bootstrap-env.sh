@@ -6,7 +6,10 @@
 ENV_NAME=${1:-$(basename "$PWD")}
 PROJECT_NAME=${2:-"agenticflow"}
 
-ENV_FILE=".env.local"
+# Strip the project prefix to avoid double-naming in docker-compose.yaml
+ENV_NAME=${ENV_NAME#"$PROJECT_NAME-"}
+
+ENV_FILE=".env"
 
 if [ "$ENV_NAME" = "main" ] || [ "$ENV_NAME" = "master" ] || [ "$ENV_NAME" = "$PROJECT_NAME" ]; then
     PROXY_PORT=18080
