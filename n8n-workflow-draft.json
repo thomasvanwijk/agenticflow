@@ -1,0 +1,273 @@
+{
+  "name": "GitHub Agent Orchestration Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "github-agent",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "id": "webhook-node",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.headers['x-github-event'] }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "issues",
+              "output": 1
+            }
+          ]
+        }
+      },
+      "id": "event-switch",
+      "name": "Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.body.action == 'assigned' && $json.body.assignee.login == 'ama-ai-agent' }}",
+              "value2": true
+            }
+          ],
+          "string": [
+            {
+              "value1": "={{ $json.body.action }}",
+              "value2": "labeled"
+            },
+            {
+              "value1": "={{ $json.body.label.name }}",
+              "operation": "startsWith",
+              "value2": "state:"
+            }
+          ]
+        }
+      },
+      "id": "state-label-check",
+      "name": "Trigger: Assigned to Agent or State Label",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "issue",
+        "operation": "getAll",
+        "repositoryOwner": "={{ $node[\"Webhook\"].json.body.repository.owner.login }}",
+        "repositoryName": "={{ $node[\"Webhook\"].json.body.repository.name }}",
+        "filters": {
+          "labels": [
+            "priority:p0-active"
+          ]
+        }
+      },
+      "id": "check-wip",
+      "name": "Check WIP Limit",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.length }}",
+              "operation": "smaller",
+              "value2": 1
+            }
+          ]
+        }
+      },
+      "id": "wip-limit-gate",
+      "name": "WIP < 1?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "issue",
+        "operation": "createComment",
+        "repositoryOwner": "={{ $node[\"Webhook\"].json.body.repository.owner.login }}",
+        "repositoryName": "={{ $node[\"Webhook\"].json.body.repository.name }}",
+        "issueNumber": "={{ $node[\"Webhook\"].json.body.issue.number }}",
+        "body": "Work-in-Progress limit reached (1 active implementation). This task has been added to the queue and will start automatically when the current task completes."
+      },
+      "id": "post-queue-msg",
+      "name": "Post Queue Msg",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "issue",
+        "operation": "addLabels",
+        "repositoryOwner": "={{ $node[\"Webhook\"].json.body.repository.owner.login }}",
+        "repositoryName": "={{ $node[\"Webhook\"].json.body.repository.name }}",
+        "issueNumber": "={{ $node[\"Webhook\"].json.body.issue.number }}",
+        "labels": [
+          "priority:p0-active"
+        ]
+      },
+      "id": "mark-active",
+      "name": "Mark Active",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=/home/thomas/workspace/agenticflow-infra/bin/gemini-agent.sh {{ $node[\"Webhook\"].json.body.label.name === 'state:planning' ? 'plan' : 'implement' }} {{ $node[\"Webhook\"].json.body.repository.owner.login }} {{ $node[\"Webhook\"].json.body.repository.name }} {{ $node[\"Webhook\"].json.body.issue.number }} {{ $node[\"Webhook\"].json.body.issue.labels.find(l => l.name.startsWith('worktree:'))?.name.split(':')[1] || 'main' }}"
+      },
+      "id": "ssh-exec",
+      "name": "SSH Agent Exec",
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "issue",
+        "operation": "createComment",
+        "repositoryOwner": "={{ $node[\"Webhook\"].json.body.repository.owner.login }}",
+        "repositoryName": "={{ $node[\"Webhook\"].json.body.repository.name }}",
+        "issueNumber": "={{ $node[\"Webhook\"].json.body.issue.number }}",
+        "body": "\u274c **Agent Error**: The orchestration pipeline encountered an error while executing the agent script. \n\nCheck n8n execution logs for details."
+      },
+      "id": "error-msg",
+      "name": "Post Error Msg",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        350
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Event Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Event Type": {
+      "main": [
+        null,
+        [
+          {
+            "node": "Is State Label?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is State Label?": {
+      "main": [
+        [
+          {
+            "node": "Check WIP Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check WIP Limit": {
+      "main": [
+        [
+          {
+            "node": "WIP < 1?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WIP < 1?": {
+      "main": [
+        [
+          {
+            "node": "Mark Active",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post Queue Msg",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Active": {
+      "main": [
+        [
+          {
+            "node": "SSH Agent Exec",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SSH Agent Exec": {
+      "main": [
+        null,
+        [
+          {
+            "node": "error-msg",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
