@@ -1,3 +1,5 @@
+import os from "os";
+import path from "path";
 import { EmbeddingProvider } from "./types.js";
 
 export class LocalProvider implements EmbeddingProvider {
@@ -16,7 +18,7 @@ export class LocalProvider implements EmbeddingProvider {
             if (!LocalProvider.initPromise) {
                 LocalProvider.initPromise = (async () => {
                     const { pipeline, env } = await import("@huggingface/transformers");
-                    env.cacheDir = process.env.TRANSFORMERS_CACHE || "/app/hf-cache";
+                    env.cacheDir = process.env.TRANSFORMERS_CACHE || path.join(os.homedir(), ".cache", "agenticflow", "hf-cache");
                     
                     if (process.env.AGENTICFLOW_LOW_RESOURCE_MODE === "true") {
                         console.error("[LocalProvider] Low resource mode enabled. Limiting ONNX threads to 1.");
@@ -31,7 +33,16 @@ export class LocalProvider implements EmbeddingProvider {
                     }
 
                     console.error(`[LocalProvider] Loading local embedding model: ${this.model}`);
-                    const loadedPipeline = await pipeline("feature-extraction", this.model, { dtype: "q8" });
+                    const loadedPipeline = await pipeline("feature-extraction", this.model, {
+                        dtype: "q8",
+                        progress_callback: (info: any) => {
+                            if (info.status === "progress") {
+                                process.stderr.write(`\r[LocalProvider] Downloading ${info.file || ''}: ${Math.round(info.progress)}%`);
+                            } else {
+                                console.error(`\n[LocalProvider] ${info.status}: ${info.file || ''}`);
+                            }
+                        }
+                    });
                     console.error(`[LocalProvider] Local embedding model loaded.`);
                     return loadedPipeline;
                 })();
