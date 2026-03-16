@@ -11,8 +11,13 @@ const execFileAsync = promisify(execFile);
 const REGISTRY = process.env.REGISTRY || "http://127.0.0.1:8080";
 const WATCH_DIR = process.env.SERVERS_DIR || "/config/servers.d";
 const SECRETS_FILE = process.env.SECRETS_FILE || "/config/secrets.enc";
+const PROJECT_NAME = process.env.PROJECT_NAME || "agenticflow";
 
-const META_TOOLS = new Set(["agenticflow__discover_tools", "agenticflow__call_tool", "agenticflow__refresh_tool_index"]);
+const META_TOOLS = new Set([
+    `${PROJECT_NAME}_discover_tools`,
+    `${PROJECT_NAME}_call_tool`,
+    `${PROJECT_NAME}_refresh_tool_index`
+]);
 
 let isSyncing = false;
 const configCache = new Map<string, string>(); // name -> stringified TEMPLATE config (pre-resolution)
@@ -96,7 +101,7 @@ export async function syncState() {
 
         let registryChanged = false;
         for (const name of currentServers) {
-            if (!desiredServers.has(name) && name !== "agenticflow") {
+            if (!desiredServers.has(name) && name !== PROJECT_NAME) {
                 logger.info(`Deregistering removed server: ${name}`, "sync-controller");
                 try {
                     await execFileAsync("mcpjungle", ["deregister", name, "--registry", REGISTRY]);
@@ -108,15 +113,15 @@ export async function syncState() {
             }
         }
 
-        const agenticflowConfig = desiredServers.get("agenticflow");
+        const agenticflowConfig = desiredServers.get(PROJECT_NAME);
         if (agenticflowConfig) {
-            const registered = await registerOrUpdateServer("agenticflow", agenticflowConfig, currentServers);
+            const registered = await registerOrUpdateServer(PROJECT_NAME, agenticflowConfig, currentServers);
             if (registered) registryChanged = true;
-            await enforceExposureState("agenticflow", true);
+            await enforceExposureState(PROJECT_NAME, true);
         }
 
         for (const [name, config] of desiredServers.entries()) {
-            if (name === "agenticflow") continue;
+            if (name === PROJECT_NAME) continue;
             const registered = await registerOrUpdateServer(name, config, currentServers);
             if (registered) registryChanged = true;
             await enforceExposureState(name, config.expose === true);
@@ -126,7 +131,7 @@ export async function syncState() {
             logger.info("Changes detected. Refreshing semantic tool index...", "sync-controller");
             await new Promise(r => setTimeout(r, 2000));
             for (const [name, config] of desiredServers.entries()) {
-                 await enforceExposureState(name, name === "agenticflow" ? true : config.expose === true);
+                 await enforceExposureState(name, name === PROJECT_NAME ? true : config.expose === true);
             }
             await refreshIndex();
         }
@@ -219,7 +224,7 @@ async function enforceExposureState(name: string, shouldExpose: boolean) {
 
 async function enforceExistingRegistryState(currentServers: Set<string>) {
     for (const name of currentServers) {
-        if (name === "agenticflow") {
+        if (name === PROJECT_NAME) {
             await enforceExposureState(name, true);
         } else {
             await enforceExistingRegistryStateEntry(name, currentServers);

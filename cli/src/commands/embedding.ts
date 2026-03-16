@@ -2,7 +2,7 @@ import inquirer from "inquirer";
 import fs from "fs";
 import path from "path";
 import ora from "ora";
-import { CONFIG_DIR } from "../config.js";
+import { CONFIG_DIR, PROJECT_NAME } from "../config.js";
 import { runDockerCompose, runShell, handleError } from "../utils/shell.js";
 import { waitForGateway } from "../services/gateway.js";
 import { envService } from "../services/env.js";
@@ -27,16 +27,25 @@ export async function embeddingAction() {
 
     envService.save(envVars);
 
-    const memoryJsonPath = path.join(CONFIG_DIR, "agenticflow.json");
-    if (fs.existsSync(memoryJsonPath)) {
+    const coreJsonPath = path.join(CONFIG_DIR, "servers.d", `${PROJECT_NAME}.json`);
+    const memoryJsonPath = path.join(CONFIG_DIR, "servers.d", "memory.json");
+    const obsidianJsonPath = path.join(CONFIG_DIR, "servers.d", "obsidian.json");
+    const oldPath = path.join(CONFIG_DIR, "agenticflow.json");
+    
+    const targetPaths = [coreJsonPath, memoryJsonPath, obsidianJsonPath, oldPath].filter(p => fs.existsSync(p));
+
+    for (const targetPath of targetPaths) {
         try {
-            const config = JSON.parse(fs.readFileSync(memoryJsonPath, "utf8"));
-            config.env = config.env || {};
-            config.env.EMBEDDING_PROVIDER = provider;
-            if (provider === "local") config.env.EMBEDDING_MODEL = "Xenova/jina-embeddings-v2-small-en";
-            fs.writeFileSync(memoryJsonPath, JSON.stringify(config, null, 4));
+            const config = JSON.parse(fs.readFileSync(targetPath, "utf8"));
+            // Only update if it looks like a memory/core config
+            if (config.env && (config.env.EMBEDDING_PROVIDER || config.name === "memory" || config.name === "obsidian" || config.name === PROJECT_NAME)) {
+                config.env = config.env || {};
+                config.env.EMBEDDING_PROVIDER = provider;
+                if (provider === "local") config.env.EMBEDDING_MODEL = "Xenova/jina-embeddings-v2-small-en";
+                fs.writeFileSync(targetPath, JSON.stringify(config, null, 4));
+            }
         } catch (err) {
-            handleError(err as Error, `Failed to update ${memoryJsonPath}`);
+            handleError(err as Error, `Failed to update ${targetPath}`);
         }
     }
 
@@ -44,11 +53,11 @@ export async function embeddingAction() {
 
     const { doIndex } = await inquirer.prompt([{ type: "confirm", name: "doIndex", message: "Re-index now?", default: true }]);
     if (doIndex) {
-        runDockerCompose("restart agenticflow-gateway", true);
-        await waitForGateway(envVars.HOST_PORT || "18080");
+        runDockerCompose("restart gateway", true);
+        await waitForGateway(envVars.PROXY_PORT || "18080");
 
-        const indexSuccess = runShell("docker exec agenticflow-gateway mcpjungle invoke agenticflow__index_vault", true);
-        const refreshSuccess = runShell("docker exec agenticflow-gateway mcpjungle invoke agenticflow__refresh_tool_index", true);
+        const indexSuccess = runDockerCompose("exec gateway mcpjungle invoke memory_index_vault", true);
+        const refreshSuccess = runDockerCompose(`exec gateway mcpjungle invoke ${PROJECT_NAME}_refresh_tool_index`, true);
 
         if (indexSuccess && refreshSuccess) {
             ora().succeed("Indexed.");

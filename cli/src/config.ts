@@ -1,18 +1,63 @@
 import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import { z } from "zod";
 
+// Pre-parse early flags for environment context
+let basePath = process.cwd();
+const workspaceFlagIndex = process.argv.indexOf("--workspace");
+if (workspaceFlagIndex > -1 && process.argv.length > workspaceFlagIndex + 1) {
+    basePath = path.resolve(process.cwd(), process.argv[workspaceFlagIndex + 1]);
+} else if (process.env.AGENTICFLOW_HOME) {
+    basePath = path.resolve(process.env.AGENTICFLOW_HOME);
+} else {
+    // If no explicit workspace or home is set, try to find the root by walking up
+    let current = process.cwd();
+    let found = false;
+    while (current !== path.parse(current).root) {
+        if (fs.existsSync(path.join(current, "docker-compose.yaml")) && fs.existsSync(path.join(current, "config"))) {
+            basePath = current;
+            found = true;
+            break;
+        }
+        current = path.dirname(current);
+    }
+
+    // If still not found, fallback to the directory where the source code is located
+    if (!found) {
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = path.dirname(__filename);
+        // Walk up from dist/config.js or src/config.ts to the project root (../.. from cli/src or cli/dist)
+        const sourceRoot = path.resolve(__dirname, "../../");
+        if (fs.existsSync(path.join(sourceRoot, "docker-compose.yaml")) && fs.existsSync(path.join(sourceRoot, "config"))) {
+            basePath = sourceRoot;
+        }
+    }
+}
+
+const envFlagIndex = process.argv.indexOf("--env");
+if (envFlagIndex > -1 && process.argv.length > envFlagIndex + 1) {
+    process.env.ENV_NAME = process.argv[envFlagIndex + 1];
+}
+
 // Load existing env for the CLI process context
-const envPath = path.resolve(process.cwd(), ".env");
+const envPath = path.resolve(basePath, ".env");
 dotenv.config({ path: envPath, quiet: true });
 
+// Attempt to load .env.local as well
+const envLocalPath = path.resolve(basePath, ".env.local");
+dotenv.config({ path: envLocalPath, quiet: true });
+
 const configSchema = z.object({
+    PROJECT_NAME: z.string().default("agenticflow"),
+    ENV_NAME: z.string().default("main"),
     ALGORITHM: z.string().default("aes-256-gcm"),
     SALT: z.string().default("agenticflow-salt"),
     ENV_FILE: z.string().default(envPath),
-    DEFAULT_SECRETS_FILE: z.string().default(path.resolve(process.cwd(), "config/secrets.enc")),
-    CONFIG_DIR: z.string().default(path.resolve(process.cwd(), "config")),
-    HOST_PORT: z.string().default("18080"),
+    DEFAULT_SECRETS_FILE: z.string().default(path.resolve(basePath, "config/secrets.enc")),
+    CONFIG_DIR: z.string().default(path.resolve(basePath, "config")),
+    PROXY_PORT: z.string().default("18080"),
     AGENTICFLOW_DEBUG: z.preprocess(
         (v) => v === "1" || v === "true",
         z.boolean().default(false)
@@ -22,15 +67,20 @@ const configSchema = z.object({
 const parsed = configSchema.safeParse(process.env);
 
 if (!parsed.success) {
-    process.stderr.write(`[agenticflow-cli] Configuration Error: ${parsed.error.message}\n`);
+    process.stderr.write(`[${process.env.PROJECT_NAME || "agenticflow"}-cli] Configuration Error: ${parsed.error.message}\n`);
     process.exit(1);
 }
 
 export const {
+    PROJECT_NAME,
+    ENV_NAME,
     ALGORITHM,
     SALT,
     ENV_FILE,
     DEFAULT_SECRETS_FILE,
     CONFIG_DIR,
+    PROXY_PORT,
     AGENTICFLOW_DEBUG,
 } = parsed.data;
+
+export const BASE_PATH = basePath;

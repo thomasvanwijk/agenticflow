@@ -1,5 +1,5 @@
 import { execSync } from "child_process";
-import { AGENTICFLOW_DEBUG } from "../config.js";
+import { AGENTICFLOW_DEBUG, BASE_PATH } from "../config.js";
 
 /**
  * Detect the available docker compose command.
@@ -24,7 +24,7 @@ export function getDockerComposeCommand(): string {
  */
 export function runShell(command: string, silent = false): boolean {
     try {
-        execSync(command, { stdio: silent ? "ignore" : "inherit" });
+        execSync(command, { stdio: silent ? "ignore" : "inherit", cwd: BASE_PATH });
         return true;
     } catch (err) {
         handleError(err as Error, `Command failed: ${command}`);
@@ -37,7 +37,7 @@ export function runShell(command: string, silent = false): boolean {
  */
 export function runShellWithOutput(command: string): string {
     try {
-        return execSync(command, { stdio: "pipe" }).toString().trim();
+        return execSync(command, { stdio: "pipe", cwd: BASE_PATH }).toString().trim();
     } catch (err) {
         handleError(err as Error, `Command failed: ${command}`);
         return "";

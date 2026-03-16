@@ -113,7 +113,7 @@ Works with **any Markdown folder** or **Obsidian vault layout**. The memory serv
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). The project is structured so you only need to configure your `.env` and `servers.d/` configuration files — nothing personal ever lands in the repo.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and our [Development Guide](DEVELOPMENT.md) for testing and isolated worktree workflows. The project is structured so you only need to configure your `.env` and `servers.d/` configuration files — nothing personal ever lands in the repo.
 
 ## License
 

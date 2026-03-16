@@ -27,7 +27,7 @@ When a user adds a new MCP server via the CLI, the following sequence occurs:
 1. **CLI File Generation:** The CLI creates a JSON configuration file in the host's `config/servers.d/` directory.
 2. **Volume Mount:** Because `config/servers.d/` is mounted into the `agenticflow-gateway` Docker container, the file becomes immediately available to the gateway.
 3. **Dynamic Hot-Reloading:** The CLI executes a `docker exec` command to instruct `mcpjungle` to register the new server without restarting the container.
-4. **Tool Discovery Refresh:** A background request is sent to the `agenticflow__refresh_tool_index` endpoint, forcing the semantic indexer to read the new tool definitions and add them to the vector database.
+4. **Tool Discovery Refresh:** A background request is sent to the `agenticflow_refresh_tool_index` endpoint, forcing the semantic indexer to read the new tool definitions and add them to the vector database.
 
 ```mermaid
 sequenceDiagram
@@ -43,7 +43,7 @@ sequenceDiagram
     Host-->>Docker: File syncs via volume mount
     CLI->>Docker: docker exec mcpjungle register
     Docker->>MCP: Initializes sqlite process via stdio
-    CLI->>Docker: POST /mcp/invoke/agenticflow__refresh_tool_index
+    CLI->>Docker: POST /mcp/invoke/agenticflow_refresh_tool_index
     Docker->>Vector: Update semantic tool index
     CLI-->>User: ✅ Added successfully
 ```
@@ -63,8 +63,7 @@ AgenticFlow is designed to keep the primary LLM agent's context window clean by 
 
 To achieve this, the core `agenticflow-memory-mcp` Node.js application is logically split into two roles using the `AGENTICFLOW_ROLE` environment variable:
 1. **Discovery (`agenticflow` server):** Exposes only `discover_tools`, `call_tool`, and `refresh_tool_index`. This is the ONLY server directly exposed to the LLM.
-2. **Memory/Notes (`obsidian` server):** Contains the actual note-taking and semantic search tools. 
+2. **Memory/Notes (`memory` server):** Contains the actual note-taking and semantic search tools.
 
-During container startup, `mcpjungle` registers the `obsidian` server but immediately disables it from the client-facing MCP protocol (`mcpjungle disable server obsidian`). The tools remain registered internally, meaning the semantic indexer (`refresh_tool_index`) can still read them, and the `call_tool` endpoint can still invoke them via `mcpjungle invoke`.
-
+During container startup, `mcpjungle` registers the `memory` server but immediately disables it from the client-facing MCP protocol (`mcpjungle disable server memory`). The tools remain registered internally, meaning the semantic indexer (`refresh_tool_index`) can still read them, and the `call_tool` endpoint can still invoke them via `mcpjungle invoke`.
 This forces the AI agent to proactively use `discover_tools` to find what it needs, matching semantic intent rather than relying on hardcoded tool names.

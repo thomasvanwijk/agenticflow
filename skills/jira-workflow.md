@@ -9,18 +9,18 @@ tags: [jira, project-management, work]
 Use this skill when you need to work with Jira: creating tickets, updating status, searching issues, or managing sprints.
 
 ## Available Tools
-- **jira__create_issue**: Create a new ticket
-- **jira__update_issue**: Update fields on an existing ticket
-- **jira__search_issues**: Search with JQL
-- **jira__get_issue**: Get details of a specific issue
-- **jira__list_projects**: List all accessible projects
+- **jira_create_issue**: Create a new ticket
+- **jira_update_issue**: Update fields on an existing ticket
+- **jira_search_issues**: Search with JQL
+- **jira_get_issue**: Get details of a specific issue
+- **jira_list_projects**: List all accessible projects
 
 ## Common Workflows
 
 ### Create a task from a Confluence requirement
-1. Read the requirement from Confluence using `confluence__get_page`
+1. Read the requirement from Confluence using `confluence_get_page`
 2. Extract the acceptance criteria
-3. Create a Jira story with `jira__create_issue`
+3. Create a Jira story with `jira_create_issue`
 
 ### Daily standup context
-Use `jira__search_issues` with JQL: `assignee = currentUser() AND status != Done ORDER BY updated DESC`
+Use `jira_search_issues` with JQL: `assignee = currentUser() AND status != Done ORDER BY updated DESC`

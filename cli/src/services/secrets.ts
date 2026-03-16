@@ -49,6 +49,11 @@ export function saveSecrets(filePath: string, secrets: Record<string, string>, p
 }
 
 export async function getMasterPassword(): Promise<string> {
+    // Priority 1: Environment variable (for CI/CD and Docker)
+    if (process.env.AGENTICFLOW_MASTER_PASSWORD) {
+        return process.env.AGENTICFLOW_MASTER_PASSWORD;
+    }
+
     try {
         const entry = new Entry(SERVICE_NAME, ACCOUNT_NAME);
         const password = await entry.getPassword();
