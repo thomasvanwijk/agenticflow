@@ -4,6 +4,9 @@ FROM golang:1.24-alpine AS mcpjungle-builder
 RUN apk add --no-cache git
 WORKDIR /build
 RUN git clone --depth 1 --branch 0.3.5 https://github.com/mcpjungle/MCPJungle.git .
+RUN sed -i 's/serverToolNameSep = "__"/serverToolNameSep = "_"/g' internal/service/mcp/util.go && \
+    sed -i 's/serverPromptNameSep = "__"/serverPromptNameSep = "_"/g' internal/service/mcp/util.go && \
+    sed -i 's/"__"/ "_" /g' internal/service/mcp/util.go
 RUN go build -o /mcpjungle .
 
 # Stage 2: Build Node components (Monorepo)

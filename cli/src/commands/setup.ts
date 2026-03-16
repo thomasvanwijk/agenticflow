@@ -3,7 +3,7 @@ import path from "path";
 import inquirer from "inquirer";
 import ora from "ora";
 import bcrypt from "bcryptjs";
-import { ENV_FILE, DEFAULT_SECRETS_FILE, CONFIG_DIR } from "../config.js";
+import { ENV_FILE, DEFAULT_SECRETS_FILE, CONFIG_DIR, PROJECT_NAME } from "../config.js";
 import { runShell, runDockerCompose, handleError } from "../utils/shell.js";
 import { generatePassword } from "../utils/crypto.js";
 import { loadSecrets, saveSecrets, setMasterPasswordInKeychain, getMasterPassword } from "../services/secrets.js";
@@ -113,24 +113,44 @@ export async function setupAction(options: any) {
     const serversDir = path.join(CONFIG_DIR, "servers.d");
     if (!fs.existsSync(serversDir)) fs.mkdirSync(serversDir, { recursive: true });
 
-    // Handle agenticflow.json move/creation
-    const memoryJson = path.join(serversDir, "agenticflow.json");
+    // Handle core config move/creation
+    const memoryJson = path.join(serversDir, `${PROJECT_NAME}.json`);
     const memoryExample = path.join(serversDir, "agenticflow.example.json");
 
-    // Also check if it exists in the OLD location and move it if so
+    // Also check if it exists in the OLD location or with the OLD name and move it
     const oldMemoryJson = path.join(CONFIG_DIR, "agenticflow.json");
+    const oldNameMemoryJson = path.join(serversDir, "agenticflow.json");
+    
     if (fs.existsSync(oldMemoryJson) && !fs.existsSync(memoryJson)) {
         fs.renameSync(oldMemoryJson, memoryJson);
-        ora().info("Moved agenticflow.json to servers.d/");
+        ora().info(`Moved agenticflow.json to servers.d/${PROJECT_NAME}.json`);
+    } else if (PROJECT_NAME !== "agenticflow" && fs.existsSync(oldNameMemoryJson) && !fs.existsSync(memoryJson)) {
+        fs.renameSync(oldNameMemoryJson, memoryJson);
+        ora().info(`Renamed agenticflow.json to ${PROJECT_NAME}.json`);
     } else if (!fs.existsSync(memoryJson) && fs.existsSync(memoryExample)) {
         fs.copyFileSync(memoryExample, memoryJson);
     }
 
-    // Handle obsidian.json creation
-    const obsidianJson = path.join(serversDir, "obsidian.json");
-    const obsidianExample = path.join(serversDir, "obsidian.example.json");
-    if (!fs.existsSync(obsidianJson) && fs.existsSync(obsidianExample)) {
-        fs.copyFileSync(obsidianExample, obsidianJson);
+    // Handle memory.json creation (for generic markdown/memories)
+    const notesJson = path.join(serversDir, "memory.json");
+    const notesExample = path.join(serversDir, "memory.example.json");
+    
+    if (!fs.existsSync(notesJson) && fs.existsSync(notesExample)) {
+        fs.copyFileSync(notesExample, notesJson);
+    }
+
+    // Handle legacy obsidian.json to memory.json rename if it exists
+    const oldObsidianJson = path.join(serversDir, "obsidian.json");
+    if (fs.existsSync(oldObsidianJson) && !fs.existsSync(notesJson)) {
+        fs.renameSync(oldObsidianJson, notesJson);
+        try {
+            const config = JSON.parse(fs.readFileSync(notesJson, "utf8"));
+            if (config.name === "obsidian") {
+                config.name = "memory";
+                fs.writeFileSync(notesJson, JSON.stringify(config, null, 4));
+            }
+        } catch (e) {}
+        ora().info("Renamed legacy obsidian.json to memory.json");
     }
 
     // Handle other example files in servers.d
@@ -185,8 +205,8 @@ export async function setupAction(options: any) {
     if (options.index !== false) {
         const { doIndex } = await inquirer.prompt([{ type: "confirm", name: "doIndex", message: "Index now?", default: true }]);
         if (doIndex) {
-            const indexSuccess = runDockerCompose("exec gateway mcpjungle invoke obsidian__index_vault", true);
-            const refreshSuccess = runDockerCompose("exec gateway mcpjungle invoke agenticflow__refresh_tool_index", true);
+            const indexSuccess = runDockerCompose("exec gateway mcpjungle invoke memory_index_vault", true);
+            const refreshSuccess = runDockerCompose(`exec gateway mcpjungle invoke ${PROJECT_NAME}_refresh_tool_index`, true);
             if (indexSuccess && refreshSuccess) {
                 ora().succeed("Indexed.");
             } else {

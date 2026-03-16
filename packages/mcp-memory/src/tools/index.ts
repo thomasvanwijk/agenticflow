@@ -312,4 +312,41 @@ export function registerTools(server: McpServer) {
             }
         }
     );
+
+    server.tool(
+        "append_log",
+        "Record a new entry in today's daily log (e.g., '40_LOGS/YYYY-MM-DD.md'). Creates the log file if it doesn't exist. Useful for recording task progress and key decisions.",
+        {
+            content: z.string().describe("Content to append to the log. IMPORTANT: The system will automatically wrap this content in an AI attribution callout. Do NOT manually wrap your prose."),
+            ai_model: z.string().optional().describe("The true current AI model and version generating this content.")
+        },
+        async ({ content, ai_model }: { content: string; ai_model?: string }) => {
+            try {
+                const now = new Date();
+                const dateStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
+                const logPath = `40_LOGS/${dateStr}.md`;
+                const full = path.join(VAULT_PATH, logPath);
+
+                const dir = path.dirname(full);
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+                const wrappedContent = wrapAsAiCallout(content, ai_model);
+                
+                if (fs.existsSync(full)) {
+                    let fileContent = fs.readFileSync(full, "utf-8");
+                    fileContent = fileContent.trimEnd() + "\n\n" + wrappedContent + "\n";
+                    fileContent = addContributorToFrontmatter(fileContent, ai_model);
+                    fs.writeFileSync(full, fileContent);
+                } else {
+                    const finalFrontmatter = mergeFrontmatterWithContributor({}, { type: "log", created: dateStr }, ai_model);
+                    const fileContent = stringifyWithLinks(wrappedContent, finalFrontmatter);
+                    fs.writeFileSync(full, fileContent);
+                }
+
+                return { content: [{ type: "text", text: `Successfully updated log at: ${logPath}` }] };
+            } catch (err) {
+                return toolError("append_log", err);
+            }
+        }
+    );
 }

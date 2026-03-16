@@ -24,6 +24,7 @@ services:
     # The gateway is now shielded by the auth proxy and not exposed to the host directly.
     environment:
       - DATABASE_URL=postgres://${PROJECT_NAME:-agenticflow}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${PROJECT_NAME:-agenticflow}
+      - PROJECT_NAME=${PROJECT_NAME:-agenticflow}
       - AGENTICFLOW_MASTER_PASSWORD=${AGENTICFLOW_MASTER_PASSWORD:-changeme}
       - NODE_OPTIONS=--max-old-space-size=512
       - MCP_SERVER_INIT_REQ_TIMEOUT_SEC=120

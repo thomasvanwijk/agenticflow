@@ -9,8 +9,13 @@ import { toolError } from "../utils/tool-error.js";
 
 const execFileAsync = promisify(execFile);
 const REGISTRY = process.env.REGISTRY || "http://127.0.0.1:8080";
+const PROJECT_NAME = process.env.PROJECT_NAME || "agenticflow";
 
-const META_TOOLS = new Set(["agenticflow__discover_tools", "agenticflow__call_tool", "agenticflow__refresh_tool_index"]);
+const META_TOOLS = new Set([
+    `${PROJECT_NAME}_discover_tools`,
+    `${PROJECT_NAME}_call_tool`,
+    `${PROJECT_NAME}_refresh_tool_index`
+]);
 
 export function registerTools(server: McpServer) {
     server.tool(
@@ -108,7 +113,7 @@ export function registerTools(server: McpServer) {
         "call_tool",
         "Execute a specific MCP tool by name. Use discover_tools first to find the right tool name, then call it here. This works for all tools including Jira, Confluence, and other integrations. CRITICAL: Do NOT flatten arguments! All tool parameters MUST be structured as a JSON object inside the 'input' argument. For example, if a tool takes 'path' and 'content', you must pass { \"tool_name\": \"...\", \"input\": \"{\\\"path\\\":\\\"...\\\",\\\"content\\\":\\\"...\\\"}\" }.",
         {
-            tool_name: z.string().describe("The exact tool name to call (e.g., 'atlassian__search_jira_issues')"),
+            tool_name: z.string().describe("The exact tool name to call (e.g., 'atlassian_search_jira_issues')"),
             input: z.string().optional().describe("A stringified JSON object containing the input parameters for the tool. IMPORTANT: This MUST be a JSON string, not a raw object."),
         },
         async ({ tool_name, input }: { tool_name: string; input?: string }) => {

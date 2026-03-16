@@ -6,7 +6,7 @@ describe("Tool Exposure & Discovery", () => {
         // Query the MCPJungle API to ensure obsidian tools are registered but disabled
         const output = execSync('curl -s http://127.0.0.1:18080/api/v0/tools 2>&1').toString();
         const tools = JSON.parse(output);
-        const createNoteTool = tools.find((t: any) => t.name === "obsidian__create_note");
+        const createNoteTool = tools.find((t: any) => t.name === "memory_create_note");
         
         expect(createNoteTool).toBeDefined();
         // mcpjungle sets enabled to false when disabled
@@ -17,37 +17,37 @@ describe("Tool Exposure & Discovery", () => {
         const output = execSync('curl -s http://127.0.0.1:18080/api/v0/tools 2>&1').toString();
         const tools = JSON.parse(output);
         
-        const agenticflowTools = tools.filter((t: any) => t.name.startsWith("agenticflow__"));
+        const agenticflowTools = tools.filter((t: any) => t.name.startsWith("agenticflow_"));
         const toolNames = agenticflowTools.map((t: any) => t.name);
 
-        expect(toolNames).toContain("agenticflow__discover_tools");
-        expect(toolNames).toContain("agenticflow__call_tool");
-        expect(toolNames).toContain("agenticflow__refresh_tool_index");
+        expect(toolNames).toContain("agenticflow_discover_tools");
+        expect(toolNames).toContain("agenticflow_call_tool");
+        expect(toolNames).toContain("agenticflow_refresh_tool_index");
         
         // It should NOT contain semantic_search directly
-        expect(toolNames).not.toContain("agenticflow__semantic_search");
+        expect(toolNames).not.toContain("agenticflow_semantic_search");
     });
 
-    it("should allow discovery of disabled tools via agenticflow__discover_tools", () => {
+    it("should allow discovery of disabled tools via agenticflow_discover_tools", () => {
         // We need to refresh the index first to ensure it's seeded
-        execSync('docker compose -f ../docker-compose.yaml exec gateway mcpjungle invoke agenticflow__refresh_tool_index --registry http://127.0.0.1:8080');
+        execSync('docker compose -f ../docker-compose.yaml exec gateway mcpjungle invoke agenticflow_refresh_tool_index --registry http://127.0.0.1:8080');
         
         // Query the discover_tools endpoint
         const input = JSON.stringify({ query: "create a note", limit: 5 });
-        const output = execSync(`docker compose -f ../docker-compose.yaml exec gateway mcpjungle invoke agenticflow__discover_tools --input '${input}' --registry http://127.0.0.1:8080 2>&1`).toString();
+        const output = execSync(`docker compose -f ../docker-compose.yaml exec gateway mcpjungle invoke agenticflow_discover_tools --input '${input}' --registry http://127.0.0.1:8080 2>&1`).toString();
         
-        // The result should contain a reference to obsidian__create_note
-        expect(output).toContain("obsidian__create_note");
+        // The result should contain a reference to memory_create_note
+        expect(output).toContain("memory_create_note");
     }, 15000);
 
-    it("should be able to invoke hidden tools via agenticflow__call_tool", () => {
+    it("should be able to invoke hidden tools via agenticflow_call_tool", () => {
         const payload = {
-            tool_name: "obsidian__search_vault_keywords",
+            tool_name: "memory_search_vault_keywords",
             input: { query: "AgenticFlow", limit: 1 }
         };
         const input = JSON.stringify(payload);
         
-        const output = execSync(`docker compose -f ../docker-compose.yaml exec gateway mcpjungle invoke agenticflow__call_tool --input '${input}' --registry http://127.0.0.1:8080 2>&1`).toString();
+        const output = execSync(`docker compose -f ../docker-compose.yaml exec gateway mcpjungle invoke agenticflow_call_tool --input '${input}' --registry http://127.0.0.1:8080 2>&1`).toString();
         
         // Since we are searching the vault, it should return a result from the MCP tool execution
         expect(output).toContain("AgenticFlow");
