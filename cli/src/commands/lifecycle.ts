@@ -5,7 +5,7 @@ import { ENV_FILE } from "../config.js";
 import inquirer from "inquirer";
 import { getMasterPassword } from "../services/secrets.js";
 
-export async function upAction() {
+export async function upAction(options: any = {}) {
     try {
         process.env.AGENTICFLOW_MASTER_PASSWORD = await getMasterPassword();
     } catch (err) {
@@ -13,7 +13,8 @@ export async function upAction() {
         process.exit(1);
     }
     const spinner = ora("Starting Agenticflow...").start();
-    if (runDockerCompose("up -d --remove-orphans", true)) {
+    const buildFlag = options.rebuild ? " --build" : "";
+    if (runDockerCompose(`up -d --remove-orphans${buildFlag}`, true)) {
         spinner.succeed("Agenticflow is running.");
     } else {
         spinner.fail("Failed to start Agenticflow.");

@@ -26,7 +26,11 @@ program
     .option("--no-index", "Skip index")
     .action(setupAction);
 
-program.command("up").description("Start cluster").action(upAction);
+program
+    .command("up")
+    .description("Start cluster")
+    .option("--rebuild", "Rebuild Docker images")
+    .action(upAction);
 program.command("down").description("Stop cluster").action(downAction);
 
 program
