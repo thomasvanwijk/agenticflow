@@ -34,8 +34,8 @@ program
     .command("up")
     .description("Start cluster")
     .option("--rebuild", "Rebuild Docker images")
-    .action(upAction);
-program.command("down").description("Stop cluster").action(downAction);
+    .action((options, command) => upAction(options, command.optsWithGlobals()));
+program.command("down").description("Stop cluster").action((options, command) => downAction(options, command ? command.optsWithGlobals() : {}));
 
 program
     .command("embedding")
