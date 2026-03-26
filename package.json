@@ -16,5 +16,8 @@
     "logs": "docker compose logs -f",
     "status": "node cli/dist/index.js mcp status",
     "cli": "node cli/dist/index.js"
+  },
+  "volta": {
+    "node": "22.22.2"
   }
 }
